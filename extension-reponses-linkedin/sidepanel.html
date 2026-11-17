@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Réponses LinkedIn</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <main class="panneau">
+    <header class="entete">
+      <p id="ligne-mode" class="ligne-mode" aria-live="polite">Mode : aucun texte capturé</p>
+      <button id="btn-options" class="btn-icone" type="button" title="Options" aria-label="Ouvrir les options">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+          <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"/>
+          <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.5-2-3.4-2.3.9a7.6 7.6 0 0 0-2.6-1.5L14 2.6h-4l-.5 2.4a7.6 7.6 0 0 0-2.6 1.5l-2.3-.9-2 3.4 2 1.5a7.6 7.6 0 0 0 0 3l-2 1.5 2 3.4 2.3-.9a7.6 7.6 0 0 0 2.6 1.5l.5 2.4h4l.5-2.4a7.6 7.6 0 0 0 2.6-1.5l2.3.9 2-3.4-2-1.5Z"/>
+        </svg>
+      </button>
+    </header>
+
+    <p id="alerte-capture" class="alerte" role="status" hidden></p>
+
+    <section class="bloc" aria-label="Textes capturés">
+      <div class="emplacement" data-emplacement="post">
+        <div class="emplacement-entete">
+          <label for="champ-post">Post</label>
+          <kbd class="raccourci" data-commande="capture-post">Alt+Shift+1</kbd>
+          <button class="btn-vider" type="button" data-vider="post" aria-label="Vider le Post">vider</button>
+        </div>
+        <textarea id="champ-post" rows="3" spellcheck="false" placeholder="Sélectionnez le texte du post sur LinkedIn, puis le raccourci."></textarea>
+      </div>
+
+      <div class="emplacement" data-emplacement="commentaire">
+        <div class="emplacement-entete">
+          <label for="champ-commentaire">Commentaire</label>
+          <kbd class="raccourci" data-commande="capture-commentaire">Alt+Shift+2</kbd>
+          <button class="btn-vider" type="button" data-vider="commentaire" aria-label="Vider le Commentaire">vider</button>
+        </div>
+        <textarea id="champ-commentaire" rows="3" spellcheck="false" placeholder="Facultatif : le commentaire auquel répondre."></textarea>
+      </div>
+
+      <div class="emplacement" data-emplacement="reponse">
+        <div class="emplacement-entete">
+          <label for="champ-reponse">Réponse</label>
+          <kbd class="raccourci" data-commande="capture-reponse">Alt+Shift+3</kbd>
+          <button class="btn-vider" type="button" data-vider="reponse" aria-label="Vider la Réponse">vider</button>
+        </div>
+        <textarea id="champ-reponse" rows="3" spellcheck="false" placeholder="Facultatif : la réponse d'un tiers à ce commentaire."></textarea>
+      </div>
+
+      <div class="ligne-droite">
+        <button id="btn-tout-vider" class="btn-secondaire" type="button">Tout vider</button>
+      </div>
+    </section>
+
+    <section class="bloc" aria-label="Contexte">
+      <div class="pastilles" role="group" aria-label="Contexte">
+        <button type="button" class="pastille" data-contexte="Elliacare" aria-pressed="false">Elliacare</button>
+        <button type="button" class="pastille" data-contexte="OCD" aria-pressed="false">OCD</button>
+        <button type="button" class="pastille" data-contexte="IA" aria-pressed="false">IA</button>
+        <button type="button" class="pastille" data-contexte="Autre" aria-pressed="false">Autre</button>
+      </div>
+      <input id="champ-precision" class="champ-precision" type="text" maxlength="80" placeholder="Précision de contexte (facultatif), ex. juridique, RH" aria-label="Précision de contexte" hidden>
+
+      <label class="interrupteur">
+        <input id="lien-elliacare" type="checkbox" role="switch">
+        <span class="piste" aria-hidden="true"></span>
+        <span class="interrupteur-libelle">Lien Elliacare</span>
+      </label>
+    </section>
+
+    <div class="actions">
+      <button id="btn-generer" class="btn-principal" type="button">
+        <span class="spinner" aria-hidden="true"></span>
+        <span class="btn-libelle">Générer</span>
+      </button>
+      <span class="aide">Entrée, ou <kbd data-commande="generer">Alt+Shift+G</kbd></span>
+    </div>
+
+    <p id="message" class="message" role="status" hidden></p>
+
+    <section id="resultats" class="resultats" aria-live="polite" hidden>
+      <p id="info-cas" class="info-cas" hidden></p>
+      <div id="liste-variantes"></div>
+      <div class="ligne-droite">
+        <button id="btn-regenerer" class="btn-secondaire" type="button">Régénérer</button>
+      </div>
+    </section>
+  </main>
+
+  <template id="modele-bloc">
+    <article class="variante">
+      <span class="etiquette"></span>
+      <div class="variante-corps">
+        <p class="variante-texte"></p>
+        <button class="btn-copier" type="button" title="Copier" aria-label="Copier">
+          <svg class="icone-copier" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" focusable="false">
+            <rect x="8.5" y="8.5" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M15.5 5.5v-.5a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+          <svg class="icone-coche" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" focusable="false">
+            <path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+      <p class="fautes" hidden></p>
+      <p class="avertissement" hidden></p>
+    </article>
+  </template>
+
+  <script src="ia.js"></script>
+  <script src="sidepanel.js"></script>
+</body>
+</html>

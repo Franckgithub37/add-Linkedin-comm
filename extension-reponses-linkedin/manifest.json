@@ -1,0 +1,54 @@
+{
+  "manifest_version": 3,
+  "name": "Réponses LinkedIn",
+  "short_name": "Réponses LI",
+  "version": "1.0.0",
+  "description": "Capture au clavier un texte sélectionné et propose deux réponses LinkedIn prêtes à coller. Usage personnel.",
+  "minimum_chrome_version": "116",
+  "permissions": ["activeTab", "scripting", "storage", "sidePanel", "clipboardWrite"],
+  "host_permissions": ["https://api.anthropic.com/*"],
+  "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "action": {
+    "default_title": "Réponses LinkedIn",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "commands": {
+    "capture-post": {
+      "suggested_key": { "default": "Alt+Shift+1" },
+      "description": "Enregistrer la sélection dans « Post »"
+    },
+    "capture-commentaire": {
+      "suggested_key": { "default": "Alt+Shift+2" },
+      "description": "Enregistrer la sélection dans « Commentaire »"
+    },
+    "capture-reponse": {
+      "suggested_key": { "default": "Alt+Shift+3" },
+      "description": "Enregistrer la sélection dans « Réponse »"
+    },
+    "generer": {
+      "suggested_key": { "default": "Alt+Shift+G" },
+      "description": "Générer les deux réponses"
+    }
+  }
+}

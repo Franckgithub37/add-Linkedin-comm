@@ -1,0 +1,14 @@
+{
+  "name": "add-linkedin-comm",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Extension Chrome personnelle Réponses LinkedIn, page d'installation et proxy optionnel (Vercel).",
+  "type": "module",
+  "scripts": {
+    "empaqueter": "node scripts/empaqueter.js",
+    "test": "node tests/tests-unitaires.js && node tests/test-proxy.js && node tests/test-extension.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

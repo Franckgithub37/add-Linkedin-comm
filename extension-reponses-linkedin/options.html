@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Options - Réponses LinkedIn</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --fond: #f6f7f9;
+      --carte: #ffffff;
+      --texte: #1d2226;
+      --texte-doux: #5e6670;
+      --bordure: #dfe3e8;
+      --accent: #0a66c2;
+      --accent-texte: #ffffff;
+      --ok: #1b7f3b;
+      --erreur: #b3261e;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --fond: #16191c;
+        --carte: #1f2328;
+        --texte: #e6e9ec;
+        --texte-doux: #a9b1ba;
+        --bordure: #353b42;
+        --accent: #70b5f9;
+        --accent-texte: #0d1b2a;
+        --ok: #7bd88f;
+        --erreur: #f2b8b5;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--fond);
+      color: var(--texte);
+      font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    main { max-width: 680px; margin: 0 auto; padding: 32px 16px 48px; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    .sous-titre { color: var(--texte-doux); margin: 0 0 24px; }
+    section {
+      background: var(--carte);
+      border: 1px solid var(--bordure);
+      border-radius: 10px;
+      padding: 18px 20px;
+      margin-bottom: 16px;
+    }
+    h2 { font-size: 15px; margin: 0 0 10px; }
+    label { display: block; font-weight: 600; font-size: 13px; margin: 12px 0 4px; }
+    label:first-of-type { margin-top: 0; }
+    input[type="text"], input[type="password"], input[type="url"], select {
+      width: 100%;
+      font: inherit;
+      color: var(--texte);
+      background: var(--fond);
+      border: 1px solid var(--bordure);
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+    .rangee { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
+    button {
+      font: inherit;
+      font-size: 13px;
+      border-radius: 8px;
+      padding: 7px 14px;
+      cursor: pointer;
+      border: 1px solid var(--bordure);
+      background: transparent;
+      color: var(--texte);
+    }
+    button.principal { background: var(--accent); border-color: var(--accent); color: var(--accent-texte); font-weight: 600; }
+    button:disabled { opacity: 0.6; cursor: progress; }
+    button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .aide { color: var(--texte-doux); font-size: 12px; margin: 6px 0 0; }
+    .etat { font-size: 13px; margin: 10px 0 0; min-height: 1.5em; }
+    .etat.ok { color: var(--ok); }
+    .etat.erreur { color: var(--erreur); }
+    table { border-collapse: collapse; width: 100%; font-size: 13px; }
+    td, th { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--bordure); }
+    th { color: var(--texte-doux); font-weight: 600; }
+    kbd {
+      font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      border: 1px solid var(--bordure);
+      border-radius: 4px;
+      padding: 1px 5px;
+    }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Réponses LinkedIn</h1>
+    <p class="sous-titre">Paramètres de l'extension. Tout reste dans ce navigateur (stockage local de Chrome).</p>
+
+    <section aria-labelledby="titre-cle">
+      <h2 id="titre-cle">Clé API Anthropic</h2>
+      <label for="cle-api">Clé API</label>
+      <input id="cle-api" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-...">
+      <p id="etat-cle-enregistree" class="aide">Aucune clé enregistrée.</p>
+      <div class="rangee">
+        <button id="btn-enregistrer-cle" class="principal" type="button">Enregistrer</button>
+        <button id="btn-tester-cle" type="button">Tester la clé</button>
+        <button id="btn-supprimer-cle" type="button">Supprimer la clé</button>
+      </div>
+      <p id="etat-cle" class="etat" role="status"></p>
+      <p class="aide">La clé n'est jamais réaffichée après enregistrement. "Tester la clé" utilise la clé saisie dans le champ, sinon la clé enregistrée.</p>
+    </section>
+
+    <section aria-labelledby="titre-modele">
+      <h2 id="titre-modele">Modèle</h2>
+      <label for="choix-modele">Modèle utilisé</label>
+      <select id="choix-modele">
+        <option value="claude-sonnet-5-5">claude-sonnet-5-5 (par défaut)</option>
+        <option value="claude-haiku-5-5">claude-haiku-5-5 (plus rapide, moins cher)</option>
+        <option value="autre">Autre (saisie libre)</option>
+      </select>
+      <div id="bloc-modele-libre" hidden>
+        <label for="modele-libre">Nom du modèle</label>
+        <input id="modele-libre" type="text" spellcheck="false" placeholder="ex. claude-opus-5-5">
+      </div>
+      <div class="rangee">
+        <button id="btn-enregistrer-modele" class="principal" type="button">Enregistrer</button>
+      </div>
+      <p id="etat-modele" class="etat" role="status"></p>
+    </section>
+
+    <section aria-labelledby="titre-proxy">
+      <h2 id="titre-proxy">Proxy (facultatif)</h2>
+      <p class="aide" style="margin-top:0">Si une URL est renseignée, l'extension envoie la requête au proxy au lieu d'appeler l'API Anthropic en direct. La clé API reste alors côté serveur (webhook n8n, ou la fonction <code>/api/proxy</code> du projet Vercel). Laisser vide pour l'appel direct.</p>
+      <label for="proxy-url">URL du proxy</label>
+      <input id="proxy-url" type="url" spellcheck="false" placeholder="https://...">
+      <label for="proxy-jeton">Jeton d'accès</label>
+      <input id="proxy-jeton" type="password" autocomplete="off" spellcheck="false" placeholder="Envoyé dans l'en-tête Authorization: Bearer">
+      <p id="etat-jeton-enregistre" class="aide"></p>
+      <div class="rangee">
+        <button id="btn-enregistrer-proxy" class="principal" type="button">Enregistrer</button>
+        <button id="btn-tester-proxy" type="button">Tester le proxy</button>
+        <button id="btn-effacer-proxy" type="button">Désactiver le proxy</button>
+      </div>
+      <p id="etat-proxy" class="etat" role="status"></p>
+    </section>
+
+    <section aria-labelledby="titre-raccourcis">
+      <h2 id="titre-raccourcis">Raccourcis clavier</h2>
+      <table>
+        <thead><tr><th>Action</th><th>Raccourci actuel</th></tr></thead>
+        <tbody id="liste-raccourcis">
+          <tr><td>Capturer dans « Post »</td><td><kbd>Alt+Shift+1</kbd></td></tr>
+          <tr><td>Capturer dans « Commentaire »</td><td><kbd>Alt+Shift+2</kbd></td></tr>
+          <tr><td>Capturer dans « Réponse »</td><td><kbd>Alt+Shift+3</kbd></td></tr>
+          <tr><td>Générer</td><td><kbd>Alt+Shift+G</kbd></td></tr>
+        </tbody>
+      </table>
+      <div class="rangee">
+        <button id="btn-raccourcis" type="button">Modifier les raccourcis (chrome://extensions/shortcuts)</button>
+      </div>
+      <p class="aide">Un raccourci "non défini" signale en général un conflit avec un autre raccourci du système ou d'une autre extension : choisissez-en un autre sur la page des raccourcis.</p>
+    </section>
+  </main>
+  <script src="ia.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

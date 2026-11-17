@@ -1,0 +1,15 @@
+# Archive générée (par scripts/empaqueter.js, localement et au déploiement Vercel)
+site/*.zip
+
+# Dépendances et caches
+node_modules/
+.vercel/
+__pycache__/
+
+# Fichiers de test temporaires
+tests/.profil-chrome/
+tests/captures/
+
+# Systèmes
+.DS_Store
+Thumbs.db
