@@ -80,15 +80,26 @@ const RESULTAT_TYPE = {
   variantes: [
     {
       angle: 'point_non_vu',
-      texte: 'Sauf que la formation sans temps dégagé reste un voeu pieux ' + TIRET_LONG + ' on forme le soir, on oublie le lendemain.\nLe vrai sujet, c\'est le temps protégé ; pas le catalogue.',
-      fautes: ['voeu (vœu)']
+      texte: 'Sauf que former sans temps dégagé reste un voeu pieux ' + TIRET_LONG + ' on forme le soir, on oublie le lendemain.\nMoi je parie sur le temps protégé ; pas sur le catalogue.',
+      fautes: ['voeu (vœu)', 'tres (très)']
     },
     {
       angle: 'reflexion',
-      texte: 'Et pourtant le cadre ne vaut que s\'il est compris par ceux qui l\'appliquent.\nUn texte que personne n\'a lu, ca ne protège pas grand monde ;-)',
-      fautes: ['ca (ça)']
+      texte: 'J\'ai du mal avec les cadres que personne n\'a lus.\nUn texte rangé dans un intranet, ca ne protège pas grand monde ;-)',
+      fautes: ['ca (ça)', 'a (à)']
+    },
+    {
+      angle: 'reflexion',
+      texte: 'Je me méfie des chartes signées a la va-vite.\nOn coche la case, et la pratique reste la meme.',
+      fautes: ['a (à)', 'meme (même)']
+    },
+    {
+      angle: 'point_non_vu',
+      texte: 'Et pourtant, le premier frein n\'est pas le cadre, c\'est l\'agenda des équipes.\nSans créneau protégé, la formation passe toujours aprés l\'urgence.',
+      fautes: ['aprés (après)', 'deja (déjà)']
     }
   ],
+  humour: { texte: 'Une charte IA sans formation, c\'est un GPS sans écran : ca rassure, ca ne guide pas.', fautes: ['ca (ça)'] },
   suggestion_elliacare: null
 };
 
@@ -321,7 +332,7 @@ async function parcoursComplet() {
       assert.equal(local.contexte, 'OCD');
     });
 
-    await etape('Générer (OCD, lien éteint) : requête conforme et deux variantes', async () => {
+    await etape('Générer (OCD, lien éteint) : requête conforme et quatre variantes', async () => {
       await panneau.click('#btn-generer');
       await panneau.waitForSelector('#resultats:not([hidden]) .variante');
       const { entetes, corps } = requetesIA.at(-1);
@@ -330,26 +341,33 @@ async function parcoursComplet() {
       assert.equal(entetes['anthropic-dangerous-direct-browser-access'], 'true');
       assert.equal(entetes['content-type'], 'application/json');
       assert.equal(corps.model, 'claude-sonnet-5-5');
-      assert.equal(corps.max_tokens, 900);
-      assert.ok(corps.system.startsWith('Tu rédiges des réponses LinkedIn'));
+      assert.equal(corps.max_tokens, 1600);
+      assert.ok(corps.system.startsWith('Tu écris des commentaires LinkedIn à la place de Franck Lavroff'));
       assert.ok(!corps.system.includes('COMPLEMENT ELLIACARE'), 'pas de complément Elliacare en contexte OCD');
       const message = corps.messages[0].content;
-      assert.ok(message.startsWith('CONTEXTE: OCD\nLIEN_ELLIACARE: non\nMODE: reponse_a_reponse\n\nPOST:\n'));
+      assert.ok(message.startsWith('CONTEXTE: OCD\nLIEN_ELLIACARE: non\nMODE: reponse_a_reponse\nLONGUEUR: standard\nIRONIE: 1\nHUMOUR: non\nATTAQUES: reflexion 1 = '));
+      assert.match(message, /\nATTAQUES: reflexion 1 = [a-z ]+ \| reflexion 2 = [a-z ]+ \| point_non_vu 1 = [a-z ]+ \| point_non_vu 2 = [a-z ]+\n\nPOST:\n/);
       assert.ok(message.includes('COMMENTAIRE:\n' + TEXTES.commentaire));
       assert.ok(message.endsWith('REPONSE:\n' + TEXTES.reponse));
 
       const etiquettes = await panneau.$$eval('.variante .etiquette', (e) => e.map((x) => x.textContent));
-      assert.deepEqual(etiquettes, ['Réflexion', 'Point non vu']);
+      assert.deepEqual(etiquettes, ['Réflexion 1', 'Réflexion 2', 'Point non vu 1', 'Point non vu 2'], 'humour décoché : pas de bloc Humour');
       const textes = await panneau.$$eval('.variante-texte', (e) => e.map((x) => x.textContent));
       for (const t of textes) {
         assert.ok(!t.includes(TIRET_LONG), 'pas de tiret long');
         assert.ok(!/;(?!-\))/.test(t), 'pas de point-virgule hors smiley');
       }
-      assert.ok(textes[1].includes(', on forme le soir'));
-      assert.ok(textes[1].includes('temps protégé. Pas le catalogue'));
+      assert.ok(textes[2].includes(', on forme le soir'));
+      assert.ok(textes[2].includes('temps protégé. Pas sur le catalogue'));
       assert.ok(textes[0].endsWith(';-)'));
       const fautes = await panneau.$$eval('.variante .fautes', (e) => e.map((x) => x.textContent));
-      assert.deepEqual(fautes, ['Fautes volontaires : ca (ça)', 'Fautes volontaires : voeu (vœu)']);
+      assert.deepEqual(fautes, [
+        'Fautes volontaires : ca (ça), a (à)',
+        'Fautes volontaires : a (à), meme (même)',
+        'Fautes volontaires : voeu (vœu), tres (très)',
+        'Fautes volontaires : aprés (après), deja (déjà)'
+      ]);
+      assert.equal(await panneau.isVisible('.avertissement'), false, 'aucun avertissement sur un résultat conforme');
       assert.equal(await panneau.isVisible('.variante.suggestion'), false);
       const style = await panneau.$eval('.variante-texte', (e) => getComputedStyle(e).whiteSpace);
       assert.equal(style, 'pre-wrap');
@@ -389,14 +407,14 @@ async function parcoursComplet() {
 
     await etape('Lien Elliacare actif en contexte OCD : LIEN_ELLIACARE oui et complément', async () => {
       await panneau.click('.pastille[data-contexte="OCD"]');
-      await panneau.click('.interrupteur');
+      await panneau.click('.interrupteur:has(#lien-elliacare)');
       assert.equal(await panneau.isChecked('#lien-elliacare'), true);
       await panneau.click('#btn-generer');
       await panneau.waitForFunction(() => !document.querySelector('#btn-generer').disabled);
       const { corps } = requetesIA.at(-1);
       assert.ok(corps.messages[0].content.startsWith('CONTEXTE: OCD\nLIEN_ELLIACARE: oui'));
       assert.ok(corps.system.includes('COMPLEMENT ELLIACARE'));
-      await panneau.click('.interrupteur');
+      await panneau.click('.interrupteur:has(#lien-elliacare)');
     });
 
     await etape('Régénérer : relance avec les mêmes entrées', async () => {
@@ -404,7 +422,75 @@ async function parcoursComplet() {
       await panneau.click('#btn-regenerer');
       await panneau.waitForFunction(() => !document.querySelector('#btn-generer').disabled);
       assert.equal(requetesIA.length, avant + 1);
-      assert.deepEqual(requetesIA.at(-1).corps.messages, requetesIA.at(-2).corps.messages);
+      const sansAttaques = (r) => r.corps.messages[0].content.replace(/\nATTAQUES: [^\n]*/, '');
+      assert.equal(sansAttaques(requetesIA.at(-1)), sansAttaques(requetesIA.at(-2)));
+    });
+
+    await etape('Longueur court, ironie 2, humour coché : transmis, mémorisés, bloc Humour en tête', async () => {
+      await panneau.click('[data-longueur="court"]');
+      await panneau.click('[data-ironie="2"]');
+      await panneau.click('.interrupteur:has(#humour)');
+      assert.equal(await panneau.isChecked('#humour'), true);
+      const reglages = await sw.evaluate(() => chrome.storage.local.get(['longueur', 'ironie', 'humour']));
+      assert.deepEqual(reglages, { longueur: 'court', ironie: 2, humour: true });
+      const court = {
+        ...RESULTAT_TYPE,
+        variantes: [
+          { angle: 'reflexion', texte: 'Moi je dirais qu\'un cadre non lu, c\'est deja un cadre perdu.', fautes: ['deja (déjà)'] },
+          { angle: 'reflexion', texte: 'J\'avoue : je signe les chartes plus vite que je ne les lis ;-)', fautes: ['a (à)'] },
+          { angle: 'point_non_vu', texte: 'La formation a besoin d\'un créneau, pas d\'un voeu.', fautes: ['voeu (vœu)'] },
+          { angle: 'point_non_vu', texte: 'Sans agenda protégé, l\'urgence gagne a chaque fois.', fautes: ['a (à)'] }
+        ]
+      };
+      filReponses.push(reponseModele(court));
+      const avant = requetesIA.length;
+      await panneau.click('#btn-generer');
+      await panneau.waitForSelector('.variante.humour');
+      assert.equal(requetesIA.length, avant + 1, 'résultat conforme : pas de réécriture');
+      const message = requetesIA.at(-1).corps.messages[0].content;
+      assert.ok(message.includes('\nLONGUEUR: court\nIRONIE: 2\nHUMOUR: oui\n'));
+      const etiquettes = await panneau.$$eval('.variante .etiquette', (e) => e.map((x) => x.textContent));
+      assert.deepEqual(etiquettes, ['Humour', 'Réflexion 1', 'Réflexion 2', 'Point non vu 1', 'Point non vu 2']);
+      const fautes = await panneau.$$eval('.variante .fautes', (e) => e.map((x) => x.textContent));
+      assert.ok(fautes.every((f) => !f.includes('attendu')), 'une faute par ligne en mode court');
+      await panneau.reload();
+      assert.equal(await panneau.getAttribute('[data-longueur="court"]', 'aria-pressed'), 'true');
+      assert.equal(await panneau.getAttribute('[data-ironie="2"]', 'aria-pressed'), 'true');
+      assert.equal(await panneau.isChecked('#humour'), true);
+      // Retour aux réglages par défaut pour la suite
+      await panneau.click('[data-longueur="standard"]');
+      await panneau.click('[data-ironie="1"]');
+      await panneau.click('.interrupteur:has(#humour)');
+    });
+
+    await etape('Formule toute faite détectée : réécriture automatique, fil de conversation transmis', async () => {
+      const fautif = {
+        ...RESULTAT_TYPE,
+        variantes: RESULTAT_TYPE.variantes.map((v, i) => i === 1 ? { ...v, texte: 'Ce qui me frappe, c\'est un point qu\'on oublie souvent.\nLe cadre ne suffit pas.' } : v)
+      };
+      filReponses.push(reponseModele(fautif), reponseModele(RESULTAT_TYPE));
+      const avant = requetesIA.length;
+      await panneau.click('#btn-generer');
+      await panneau.waitForFunction(() => !document.querySelector('#btn-generer').disabled && document.querySelectorAll('.variante').length === 4);
+      assert.equal(requetesIA.length, avant + 2);
+      const correction = requetesIA.at(-1).corps.messages;
+      assert.equal(correction.length, 3);
+      assert.deepEqual(correction.map((m) => m.role), ['user', 'assistant', 'user']);
+      assert.match(correction[2].content, /Réflexion 1 : contient « ce qui me frappe », « qu'on oublie souvent »/);
+      const textes = await panneau.$$eval('.variante-texte', (e) => e.map((x) => x.textContent.toLowerCase()));
+      assert.ok(textes.every((t) => !t.includes('ce qui me frappe')));
+      assert.match(await panneau.textContent('#info-cas'), /Réécriture automatique/);
+    });
+
+    await etape('Formule toujours présente après réécriture : avertissement visible', async () => {
+      const fautif = {
+        ...RESULTAT_TYPE,
+        variantes: RESULTAT_TYPE.variantes.map((v, i) => i === 0 ? { ...v, texte: 'Le plus frappant, c\'est la vitesse.' } : v)
+      };
+      filReponses.push(reponseModele(fautif), reponseModele(fautif));
+      await panneau.click('#btn-generer');
+      await panneau.waitForSelector('.avertissement:not([hidden])');
+      assert.match(await panneau.textContent('.avertissement:not([hidden])'), /formule toute faite « le plus frappant »/);
     });
 
     await etape('JSON invalide : une relance avec consigne, puis texte brut', async () => {
@@ -421,7 +507,7 @@ async function parcoursComplet() {
     await etape('JSON invalide puis valide : variantes affichées', async () => {
       filReponses.push(reponseModele('pas du json'), reponseModele(RESULTAT_TYPE));
       await panneau.click('#btn-generer');
-      await panneau.waitForFunction(() => document.querySelectorAll('.variante:not(.brut)').length === 2);
+      await panneau.waitForFunction(() => document.querySelectorAll('.variante:not(.brut)').length === 4);
     });
 
     await etape('Erreurs : clé refusée (401) et limite de débit (429)', async () => {
@@ -490,6 +576,7 @@ async function parcoursComplet() {
     await sw.evaluate((t) => chrome.storage.session.set({ ...t, erreurCapture: null }), TEXTES);
     filReponses.push(reponseModele({ ...RESULTAT_TYPE, suggestion_elliacare: 'L\'IA assiste, le clinicien décide : encore faut-il lui laisser le temps de se former.' }));
     await panneau.reload();
+    await panneau.click('.interrupteur:has(#humour)');
     await panneau.click('#btn-generer');
     await panneau.waitForSelector('.variante.suggestion');
     await panneau.screenshot({ path: join(dossierCaptures, 'panneau-clair.png'), fullPage: true });

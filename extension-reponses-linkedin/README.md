@@ -4,8 +4,8 @@ Depuis LinkedIn, l'extension permet de :
 
 1. capturer au clavier un texte sélectionné (le post, un commentaire, une réponse dans un fil) ;
 2. choisir un contexte (Elliacare, OCD, IA, Autre) ;
-3. obtenir deux réponses prêtes à poster, une en mode "réflexion", l'autre en mode "point non vu" ;
-4. copier la réponse choisie d'un clic sur une petite icône, puis la coller soi-même dans LinkedIn.
+3. obtenir quatre commentaires courts prêts à poster, écrits dans la voix de Franck : deux en mode "réflexion", deux en mode "point non vu", plus une ligne d'humour si la case est cochée ;
+4. copier le commentaire choisi d'un clic sur une petite icône, puis le coller soi-même dans LinkedIn.
 
 Usage strictement personnel. L'extension n'est pas publiée sur le Chrome Web Store.
 
@@ -44,7 +44,7 @@ Où est stockée la clé : dans `chrome.storage.local`, sur cet ordinateur, pour
 - `claude-haiku-5-5` : plus rapide et moins cher.
 - **Autre (saisie libre)** : n'importe quel autre nom de modèle.
 
-Pour Sonnet 5.5 et Haiku 5.5, l'extension coupe la réflexion interne du modèle (elle compterait dans les 900 jetons de réponse) : la réponse arrive plus vite et le JSON n'est pas tronqué. Avec Sonnet 5.5, un repli automatique côté serveur (`fallbacks: "default"`) est aussi activé : si le modèle décline une demande par excès de prudence, l'API la rejoue sur un autre modèle.
+Pour Sonnet 5.5 et Haiku 5.5, l'extension coupe la réflexion interne du modèle (elle compterait dans les jetons de réponse) : la réponse arrive plus vite et le JSON n'est pas tronqué. Avec Sonnet 5.5, un repli automatique côté serveur (`fallbacks: "default"`) est aussi activé : si le modèle décline une demande par excès de prudence, l'API la rejoue sur un autre modèle.
 
 ## 3. Raccourcis clavier et remappage
 
@@ -69,12 +69,22 @@ Conflits possibles : selon le système, la disposition du clavier ou d'autres ex
 1. Sur LinkedIn, sélectionnez le texte d'un post, puis `Alt+Shift+1`. Le texte va dans l'emplacement **Post**, le panneau latéral s'ouvre, et le badge de l'icône affiche `P`.
 2. Facultatif : sélectionnez un commentaire, puis `Alt+Shift+2` (badge `PC`).
 3. Facultatif : sélectionnez la réponse d'un tiers à ce commentaire, puis `Alt+Shift+3` (badge `PCR`).
-4. Dans le panneau, choisissez le contexte : **Elliacare**, **OCD**, **IA** ou **Autre** (avec une précision facultative, par exemple "juridique" ou "RH"). Le dernier choix est mémorisé.
-5. Activez si besoin **Lien Elliacare** : chaque réponse contiendra alors une phrase sur le contexte Elliacare.
-6. Cliquez sur **Générer**, appuyez sur `Entrée` (ou `Ctrl+Entrée` depuis une zone de texte), ou utilisez `Alt+Shift+G`.
-7. Deux réponses s'affichent : **Réflexion** puis **Point non vu**. Sous chacune, la ligne grise "Fautes volontaires" liste les fautes glissées exprès pour garder un ton humain (cette ligne n'est jamais copiée).
-8. Cliquez sur l'icône de copie à droite de la réponse choisie : elle devient une coche pendant un instant. Collez dans LinkedIn et publiez vous-même.
-9. **Régénérer** relance avec les mêmes entrées pour obtenir d'autres formulations.
+4. Dans le panneau, réglez (chaque choix est mémorisé) :
+   - **Contexte** : Elliacare, OCD, IA ou Autre (avec une précision facultative, par exemple "juridique" ou "RH") ;
+   - **Longueur** : Court (une ligne percutante), Standard (deux lignes maximum) ou Développé (trois lignes maximum, jamais au-delà) ;
+   - **Ironie** : 0 (aucune, ton direct et sincère), 1 (une touche d'humour sec ou d'autodérision), 2 (ironie assumée, piquante et complice) ;
+   - **Humour** : ajoute une ligne drôle et percutante, en plus des quatre commentaires ;
+   - **Lien Elliacare** : chaque commentaire fait alors un lien concret avec Elliacare.
+5. Cliquez sur **Générer**, appuyez sur `Entrée` (ou `Ctrl+Entrée` depuis une zone de texte), ou utilisez `Alt+Shift+G`.
+6. Les commentaires s'affichent : **Humour** (si coché), **Réflexion 1**, **Réflexion 2**, **Point non vu 1**, **Point non vu 2**. Sous chacun, la ligne grise "Fautes volontaires" liste les fautes glissées exprès : autant de fautes que de lignes (une en Court, deux en Standard, trois en Développé, une pour l'humour). Cette ligne n'est jamais copiée.
+7. Cliquez sur l'icône de copie à droite du commentaire choisi : elle devient une coche pendant un instant. Collez dans LinkedIn et publiez vous-même.
+8. **Régénérer** relance avec les mêmes entrées. Les ouvertures des commentaires sont tirées au sort à chaque génération (prise de position, aveu, antithèse sèche, question, retournement, image de terrain, chute, désaccord poli) : deux générations ne se ressemblent pas.
+
+### Style et formules toutes faites
+
+Les commentaires sont écrits à la première personne, dans la voix de Franck : prise de position, doute ou aveu assumés, "je" porteur dans au moins trois commentaires sur quatre. Les formules toutes faites sont interdites ("Ce qui me frappe", "Le plus frappant", "Ce que l'on oublie souvent", "Un point qu'on oublie souvent", "Ce qu'on ne dit pas", "Le vrai sujet", "bravo", "merci pour le partage", etc.).
+
+Contrôle automatique : si un commentaire contient malgré tout une de ces formules, dépasse la longueur demandée, ou si un élément manque, l'extension demande aussitôt une réécriture au modèle (une seule fois). Si un défaut subsiste, une alerte rouge "À relire" s'affiche sous le commentaire concerné.
 
 Le mode est déduit des emplacements remplis et affiché en haut du panneau :
 
@@ -134,7 +144,7 @@ Pour voir les erreurs techniques : `chrome://extensions`, puis lien **Service wo
 - Permissions : `activeTab`, `scripting`, `storage`, `sidePanel`, `clipboardWrite`. Permission d'hôte : `https://api.anthropic.com/*` uniquement, plus le domaine du proxy s'il est configuré (permission optionnelle). Aucune permission sur linkedin.com : l'accès à la page n'est accordé par Chrome qu'au moment du raccourci (`activeTab`).
 - Aucune télémétrie, aucun suivi. Le seul appel réseau part vers le point d'accès IA configuré.
 - Le texte envoyé à l'IA se limite aux trois emplacements et au contexte choisi.
-- Contrôle de sécurité avant affichage : tout tiret long est remplacé par une virgule et tout point-virgule (hors smiley `;-)`) par un point. Une alerte discrète signale aussi "bravo" ou "merci pour le partage" s'ils apparaissaient malgré le prompt.
+- Contrôle de sécurité avant affichage : tout tiret long est remplacé par une virgule et tout point-virgule (hors smiley `;-)`) par un point. Les formules toutes faites déclenchent une réécriture automatique, puis une alerte si elles persistent.
 
 ## 9. Fichiers
 
@@ -143,7 +153,7 @@ extension-reponses-linkedin/
   manifest.json          déclaration Manifest V3, raccourcis, permissions
   background.js          commandes, capture de la sélection, badge, ouverture du panneau
   sidepanel.html/.css/.js  panneau latéral : emplacements, contexte, génération, rendu, copie
-  ia.js                  fonctions partagées : mode, gabarit, appel IA, erreurs, JSON, nettoyage
+  ia.js                  fonctions partagées : mode, gabarit, attaques, appel IA, erreurs, JSON, nettoyage, contrôle des formules
   options.html/.js       clé API, modèle, proxy, rappel des raccourcis
   prompts/system.md      prompt système
   prompts/contexte-elliacare.md  complément Elliacare

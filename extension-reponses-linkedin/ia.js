@@ -8,7 +8,8 @@
   const POINT_ACCES_ANTHROPIC = 'https://api.anthropic.com/v1/messages';
   const VERSION_API = '2023-06-01';
   const MODELE_PAR_DEFAUT = 'claude-sonnet-5-5';
-  const MAX_TOKENS = 900;
+  // Quatre commentaires + une ligne d'humour + les listes de fautes tiennent largement.
+  const MAX_TOKENS = 1600;
   const DELAI_MAX_MS = 30000;
   const BETA_REPLI = 'server-side-fallback-2026-07-01';
 
@@ -18,6 +19,50 @@
     reponse_a_reponse: 'réponse à une réponse',
     reponse_sans_contexte: 'réponse à un commentaire, sans le post'
   };
+
+  // Longueurs proposées : le nombre de fautes volontaires est égal au nombre de lignes.
+  const LONGUEURS = {
+    court: { libelle: 'Court', lignes: 1, maxCaracteres: 140 },
+    standard: { libelle: 'Standard', lignes: 2, maxCaracteres: 260 },
+    developpe: { libelle: 'Développé', lignes: 3, maxCaracteres: 380 }
+  };
+  const LONGUEUR_PAR_DEFAUT = 'standard';
+  const IRONIE_PAR_DEFAUT = 1;
+  const HUMOUR_MAX_CARACTERES = 120;
+
+  // Façons d'ouvrir un commentaire (décrites dans le prompt système).
+  // Un tirage au sort à chaque génération évite que les réponses se ressemblent toutes.
+  const ATTAQUES = [
+    'prise de position',
+    'antithese seche',
+    'aveu',
+    'question',
+    'retournement',
+    'image de terrain',
+    'chute',
+    'desaccord poli'
+  ];
+  const EMPLACEMENTS_VARIANTES = ['reflexion 1', 'reflexion 2', 'point_non_vu 1', 'point_non_vu 2'];
+
+  function normaliserLongueur(longueur) {
+    return Object.prototype.hasOwnProperty.call(LONGUEURS, longueur) ? longueur : LONGUEUR_PAR_DEFAUT;
+  }
+
+  function normaliserIronie(ironie) {
+    const n = Number(ironie);
+    return n === 0 || n === 1 || n === 2 ? n : IRONIE_PAR_DEFAUT;
+  }
+
+  /** Tire quatre attaques différentes au hasard, une par commentaire. */
+  function tirerAttaques(aleatoire) {
+    const hasard = typeof aleatoire === 'function' ? aleatoire : Math.random;
+    const melange = ATTAQUES.slice();
+    for (let i = melange.length - 1; i > 0; i--) {
+      const j = Math.floor(hasard() * (i + 1));
+      [melange[i], melange[j]] = [melange[j], melange[i]];
+    }
+    return melange.slice(0, EMPLACEMENTS_VARIANTES.length);
+  }
 
   /** Erreur affichable telle quelle dans l'interface (message court en français). */
   class ErreurIA extends Error {
@@ -90,8 +135,16 @@
     const lignes = [
       'CONTEXTE: ' + libelleContexte(entrees.contexte, entrees.precision),
       'LIEN_ELLIACARE: ' + (entrees.lienElliacare ? 'oui' : 'non'),
-      'MODE: ' + entrees.mode
+      'MODE: ' + entrees.mode,
+      'LONGUEUR: ' + normaliserLongueur(entrees.longueur),
+      'IRONIE: ' + normaliserIronie(entrees.ironie),
+      'HUMOUR: ' + (entrees.humour ? 'oui' : 'non')
     ];
+    if (Array.isArray(entrees.attaques) && entrees.attaques.length) {
+      lignes.push('ATTAQUES: ' + EMPLACEMENTS_VARIANTES
+        .map((emplacement, i) => emplacement + ' = ' + (entrees.attaques[i] || entrees.attaques[0]))
+        .join(' | '));
+    }
     let texte = lignes.join('\n');
     const blocs = [
       ['POST', entrees.post],
@@ -132,7 +185,7 @@
   }
 
   /**
-   * Réglages propres à chaque modèle, pour que les 900 jetons servent à la réponse.
+   * Réglages propres à chaque modèle, pour que les jetons servent à la réponse.
    * La réflexion interne compte dans max_tokens : on la coupe quand le modèle le permet.
    */
   function reglagesModele(modele) {
@@ -149,12 +202,16 @@
     return {};
   }
 
-  function construireCorps({ systeme, messageUtilisateur, modele }) {
+  /**
+   * Corps de la requête. Accepte soit un seul message utilisateur, soit un fil
+   * de messages complet (utilisé pour la demande de réécriture).
+   */
+  function construireCorps({ systeme, messageUtilisateur, messages, modele }) {
     return Object.assign({
       model: modele || MODELE_PAR_DEFAUT,
       max_tokens: MAX_TOKENS,
       system: systeme,
-      messages: [{ role: 'user', content: messageUtilisateur }]
+      messages: Array.isArray(messages) ? messages : [{ role: 'user', content: messageUtilisateur }]
     }, reglagesModele(modele || MODELE_PAR_DEFAUT));
   }
 
@@ -349,8 +406,16 @@
     return null;
   }
 
+  function normaliserAngle(angle) {
+    const a = typeof angle === 'string' ? angle.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').replace(/[\s-]+/g, '_') : '';
+    if (a.startsWith('reflexion')) return 'reflexion';
+    if (a.startsWith('point_non_vu') || a.startsWith('pointnonvu')) return 'point_non_vu';
+    return '';
+  }
+
   /**
-   * Vérifie la structure attendue et renvoie { cas, variantes: [reflexion, point_non_vu], suggestion }
+   * Vérifie la structure attendue et renvoie
+   * { cas, variantes: [reflexion 1, reflexion 2, point_non_vu 1, point_non_vu 2], humour, suggestion }
    * ou null si le JSON ne convient pas.
    */
   function normaliserResultat(objet) {
@@ -358,14 +423,24 @@
     const valides = objet.variantes.filter((v) => v && typeof v.texte === 'string' && v.texte.trim() !== '');
     if (valides.length === 0) return null;
 
-    const trouver = (angle) => valides.find((v) => typeof v.angle === 'string' && v.angle.toLowerCase().replace(/[\s-]+/g, '_') === angle);
-    const reflexion = trouver('reflexion') || valides[0];
-    const pointNonVu = trouver('point_non_vu') || valides.find((v) => v !== reflexion) || null;
+    const reflexions = valides.filter((v) => normaliserAngle(v.angle) === 'reflexion').slice(0, 2);
+    const points = valides.filter((v) => normaliserAngle(v.angle) === 'point_non_vu').slice(0, 2);
+    // Variantes sans angle reconnu : complètent les cases vides, dans l'ordre reçu.
+    for (const v of valides) {
+      if (reflexions.includes(v) || points.includes(v)) continue;
+      if (reflexions.length < 2) reflexions.push(v);
+      else if (points.length < 2) points.push(v);
+    }
 
     const variantes = [];
-    variantes.push({ angle: 'reflexion', texte: nettoyerTexte(reflexion.texte), fautes: listeFautes(reflexion.fautes) });
-    if (pointNonVu) {
-      variantes.push({ angle: 'point_non_vu', texte: nettoyerTexte(pointNonVu.texte), fautes: listeFautes(pointNonVu.fautes) });
+    reflexions.forEach((v, i) => variantes.push({ angle: 'reflexion', numero: i + 1, texte: nettoyerTexte(v.texte), fautes: listeFautes(v.fautes) }));
+    points.forEach((v, i) => variantes.push({ angle: 'point_non_vu', numero: i + 1, texte: nettoyerTexte(v.texte), fautes: listeFautes(v.fautes) }));
+
+    let humour = null;
+    if (objet.humour && typeof objet.humour === 'object' && typeof objet.humour.texte === 'string' && objet.humour.texte.trim()) {
+      humour = { texte: nettoyerTexte(objet.humour.texte), fautes: listeFautes(objet.humour.fautes) };
+    } else if (typeof objet.humour === 'string' && objet.humour.trim() && objet.humour.trim().toLowerCase() !== 'null') {
+      humour = { texte: nettoyerTexte(objet.humour), fautes: [] };
     }
 
     let suggestion = null;
@@ -378,8 +453,13 @@
       mode: typeof objet.mode === 'string' ? objet.mode : '',
       cas: typeof objet.cas === 'string' ? objet.cas : 'standard',
       variantes,
+      humour,
       suggestion
     };
+  }
+
+  function libelleVariante(variante) {
+    return (variante.angle === 'reflexion' ? 'Réflexion' : 'Point non vu') + (variante.numero ? ' ' + variante.numero : '');
   }
 
   function listeFautes(fautes) {
@@ -421,11 +501,95 @@
     return s.trim();
   }
 
-  const EXPRESSIONS_PROSCRITES = ['bravo', 'merci pour le partage', 'merci pour ton retour', 'merci pour votre retour'];
+  // ---------------------------------------------------------------------------
+  // Formules toutes faites et contrôle de longueur
+  // ---------------------------------------------------------------------------
+
+  // Comparées sans accents, sans majuscules, apostrophes normalisées.
+  const FORMULES_TOUTES_FAITES = [
+    'ce qui me frappe', 'ce qui frappe', 'le plus frappant',
+    "ce que l'on oublie", "ce qu'on oublie", "qu'on oublie souvent", 'souvent oublie',
+    "ce qu'on ne dit pas", "ce que l'on ne dit pas", "on n'en parle pas assez",
+    'le vrai sujet', 'la vraie question', 'tout est dit', 'je rejoins', 'excellente analyse',
+    "c'est tout l'enjeu", "n'oublions pas", 'il ne faut pas oublier', 'angle mort',
+    "ce qu'on ne voit pas", 'personne ne souleve', 'en realite', 'au final',
+    'belle reflexion', 'ton post souleve', 'votre post souleve',
+    'bravo', 'merci pour le partage', 'merci pour ton retour', 'merci pour votre retour'
+  ];
+
+  function normaliserPourRecherche(texte) {
+    return (texte || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/\p{M}/gu, '')
+      .replace(/[’‘`´]/g, "'")
+      .replace(/\s+/g, ' ');
+  }
+
+  function formulesToutesFaites(texte) {
+    const t = normaliserPourRecherche(texte);
+    return FORMULES_TOUTES_FAITES.filter((f) => t.includes(f));
+  }
+
+  function compterLignes(texte) {
+    return (texte || '').split('\n').filter((l) => l.trim() !== '').length;
+  }
+
+  /**
+   * Contrôle d'un commentaire par rapport aux réglages : formules interdites,
+   * longueur (avec une tolérance de 15 %), nombre de fautes attendu.
+   */
+  function controlerTexte(texte, fautes, longueur, estHumour) {
+    const reglage = LONGUEURS[normaliserLongueur(longueur)];
+    const maxCaracteres = estHumour ? HUMOUR_MAX_CARACTERES : reglage.maxCaracteres;
+    const maxLignes = estHumour ? 1 : reglage.lignes;
+    const caracteres = (texte || '').length;
+    const lignes = compterLignes(texte);
+    const fautesAttendues = estHumour ? 1 : reglage.lignes;
+    return {
+      formules: formulesToutesFaites(texte),
+      tropLong: caracteres > Math.round(maxCaracteres * 1.15) || lignes > maxLignes,
+      caracteres,
+      lignes,
+      maxCaracteres,
+      maxLignes,
+      fautesAttendues,
+      fautesOk: Array.isArray(fautes) && fautes.length === fautesAttendues
+    };
+  }
+
+  /** Liste des corrections à demander au modèle (formules, longueur, éléments manquants). */
+  function problemesARecrire(resultat, reglages) {
+    const problemes = [];
+    const longueur = normaliserLongueur(reglages.longueur);
+    for (const v of resultat.variantes) {
+      const c = controlerTexte(v.texte, v.fautes, longueur, false);
+      if (c.formules.length) problemes.push(libelleVariante(v) + ' : contient « ' + c.formules.join(' », « ') + ' », formule toute faite interdite.');
+      if (c.tropLong) problemes.push(libelleVariante(v) + ' : ' + c.caracteres + ' caractères sur ' + c.lignes + ' ligne(s), la longueur ' + longueur + ' impose ' + c.maxCaracteres + ' caractères et ' + c.maxLignes + ' ligne(s) au maximum.');
+    }
+    const nbReflexions = resultat.variantes.filter((v) => v.angle === 'reflexion').length;
+    const nbPoints = resultat.variantes.filter((v) => v.angle === 'point_non_vu').length;
+    if (nbReflexions < 2 || nbPoints < 2) problemes.push('Il faut exactement deux commentaires "reflexion" et deux commentaires "point_non_vu".');
+    if (reglages.humour) {
+      if (!resultat.humour) {
+        problemes.push('La ligne "humour" est demandée et manque.');
+      } else {
+        const c = controlerTexte(resultat.humour.texte, resultat.humour.fautes, longueur, true);
+        if (c.formules.length) problemes.push('Humour : contient « ' + c.formules.join(' », « ') + ' », formule toute faite interdite.');
+        if (c.tropLong) problemes.push('Humour : ' + c.caracteres + ' caractères, une seule ligne de ' + HUMOUR_MAX_CARACTERES + ' caractères au maximum.');
+      }
+    }
+    return problemes;
+  }
+
+  function messageCorrection(problemes) {
+    return 'Réécris le JSON complet en corrigeant ces points, sans toucher à ce qui est correct :\n- '
+      + problemes.join('\n- ')
+      + '\nGarde la voix personnelle de Franck, les attaques demandées, la longueur demandée et autant de fautes que de lignes. Réponds uniquement avec le JSON demandé, sans aucun texte autour.';
+  }
 
   function expressionsProscrites(texte) {
-    const t = (texte || '').toLowerCase();
-    return EXPRESSIONS_PROSCRITES.filter((e) => t.includes(e));
+    return formulesToutesFaites(texte);
   }
 
   racine.IA = {
@@ -433,6 +597,19 @@
     MAX_TOKENS,
     DELAI_MAX_MS,
     MODES,
+    LONGUEURS,
+    LONGUEUR_PAR_DEFAUT,
+    IRONIE_PAR_DEFAUT,
+    HUMOUR_MAX_CARACTERES,
+    ATTAQUES,
+    tirerAttaques,
+    normaliserLongueur,
+    normaliserIronie,
+    libelleVariante,
+    formulesToutesFaites,
+    controlerTexte,
+    problemesARecrire,
+    messageCorrection,
     ErreurIA,
     determinerMode,
     construireMessageUtilisateur,

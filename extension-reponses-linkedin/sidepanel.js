@@ -3,12 +3,13 @@
 
 const EMPLACEMENTS = ['post', 'commentaire', 'reponse'];
 const CONTEXTES = ['Elliacare', 'OCD', 'IA', 'Autre'];
-const LIBELLES_ANGLES = { reflexion: 'Réflexion', point_non_vu: 'Point non vu' };
+const LONGUEURS = ['court', 'standard', 'developpe'];
 const LIBELLES_CAS = {
-  court: 'Cas détecté : commentaire court ou laudatif, réponse brève.',
-  desaccord: 'Cas détecté : désaccord sincère, réponse sans ironie.',
-  hostile: 'Cas détecté : commentaire hostile, réponse factuelle et courte.',
-  spam: 'Cas détecté : commentaire promotionnel ou spam. Une réponse n\'en vaut peut-être pas la peine.'
+  laudatif: 'Cas détecté : commentaire laudatif, réponse sans remerciement ni félicitations.',
+  desaccord: 'Cas détecté : désaccord sincère, réponse sur l\'argument.',
+  hostile: 'Cas détecté : commentaire hostile, réponse factuelle sans escalade.',
+  spam: 'Cas détecté : commentaire promotionnel ou spam. Une réponse n\'en vaut peut-être pas la peine.',
+  sensible: 'Cas détecté : sujet sensible, ironie ramenée à 0.'
 };
 const DUREE_COCHE_MS = 1200;
 const DUREE_ALERTE_CAPTURE_MS = 6000;
@@ -25,6 +26,7 @@ const ligneMode = $('#ligne-mode');
 const alerteCapture = $('#alerte-capture');
 const champPrecision = $('#champ-precision');
 const interrupteurLien = $('#lien-elliacare');
+const interrupteurHumour = $('#humour');
 const btnGenerer = $('#btn-generer');
 const btnRegenerer = $('#btn-regenerer');
 const zoneMessage = $('#message');
@@ -35,6 +37,8 @@ const modeleBloc = $('#modele-bloc');
 
 const etat = {
   contexte: 'Elliacare',
+  longueur: IA.LONGUEUR_PAR_DEFAUT,
+  ironie: IA.IRONIE_PAR_DEFAUT,
   enCours: false,
   dernieresEntrees: null,
   fenetre: null,
@@ -60,10 +64,13 @@ async function initialiser() {
     champs[cle].value = typeof session[cle] === 'string' ? session[cle] : '';
   }
 
-  const local = await chrome.storage.local.get(['contexte', 'precisionContexte', 'lienElliacare']);
+  const local = await chrome.storage.local.get(['contexte', 'precisionContexte', 'lienElliacare', 'longueur', 'ironie', 'humour']);
   choisirContexte(CONTEXTES.includes(local.contexte) ? local.contexte : 'Elliacare', false);
+  choisirLongueur(LONGUEURS.includes(local.longueur) ? local.longueur : IA.LONGUEUR_PAR_DEFAUT, false);
+  choisirIronie(local.ironie === undefined ? IA.IRONIE_PAR_DEFAUT : IA.normaliserIronie(local.ironie), false);
   champPrecision.value = typeof local.precisionContexte === 'string' ? local.precisionContexte : '';
   interrupteurLien.checked = local.lienElliacare === true;
+  interrupteurHumour.checked = local.humour === true;
 
   majMode();
   afficherRaccourcis();
@@ -89,8 +96,14 @@ function brancherEvenements() {
   });
   $('#btn-tout-vider').addEventListener('click', () => viderEmplacements(EMPLACEMENTS));
 
-  document.querySelectorAll('.pastille').forEach((pastille) => {
+  document.querySelectorAll('[data-contexte]').forEach((pastille) => {
     pastille.addEventListener('click', () => choisirContexte(pastille.dataset.contexte, true));
+  });
+  document.querySelectorAll('[data-longueur]').forEach((pastille) => {
+    pastille.addEventListener('click', () => choisirLongueur(pastille.dataset.longueur, true));
+  });
+  document.querySelectorAll('[data-ironie]').forEach((pastille) => {
+    pastille.addEventListener('click', () => choisirIronie(Number(pastille.dataset.ironie), true));
   });
 
   let minuteriePrecision = null;
@@ -103,6 +116,9 @@ function brancherEvenements() {
 
   interrupteurLien.addEventListener('change', () => {
     chrome.storage.local.set({ lienElliacare: interrupteurLien.checked });
+  });
+  interrupteurHumour.addEventListener('change', () => {
+    chrome.storage.local.set({ humour: interrupteurHumour.checked });
   });
 
   btnGenerer.addEventListener('click', () => generer());
@@ -209,11 +225,27 @@ function traiterDemandeGeneration(demande) {
 
 function choisirContexte(contexte, memoriser) {
   etat.contexte = contexte;
-  document.querySelectorAll('.pastille').forEach((pastille) => {
+  document.querySelectorAll('[data-contexte]').forEach((pastille) => {
     pastille.setAttribute('aria-pressed', String(pastille.dataset.contexte === contexte));
   });
   champPrecision.hidden = contexte !== 'Autre';
   if (memoriser) chrome.storage.local.set({ contexte });
+}
+
+function choisirLongueur(longueur, memoriser) {
+  etat.longueur = longueur;
+  document.querySelectorAll('[data-longueur]').forEach((pastille) => {
+    pastille.setAttribute('aria-pressed', String(pastille.dataset.longueur === longueur));
+  });
+  if (memoriser) chrome.storage.local.set({ longueur });
+}
+
+function choisirIronie(ironie, memoriser) {
+  etat.ironie = ironie;
+  document.querySelectorAll('[data-ironie]').forEach((pastille) => {
+    pastille.setAttribute('aria-pressed', String(Number(pastille.dataset.ironie) === ironie));
+  });
+  if (memoriser) chrome.storage.local.set({ ironie });
 }
 
 // -----------------------------------------------------------------------------
@@ -268,7 +300,10 @@ function lireEntrees() {
     reponse: champs.reponse.value,
     contexte: etat.contexte,
     precision: etat.contexte === 'Autre' ? champPrecision.value : '',
-    lienElliacare: interrupteurLien.checked
+    lienElliacare: interrupteurLien.checked,
+    longueur: etat.longueur,
+    ironie: etat.ironie,
+    humour: interrupteurHumour.checked
   };
 }
 
@@ -297,35 +332,57 @@ async function generer(entreesForcees) {
     return;
   }
 
-  etat.dernieresEntrees = entrees;
+  etat.dernieresEntrees = Object.assign({}, entrees);
+  // Nouveau tirage des attaques à chaque génération (Régénérer compris) :
+  // les quatre commentaires ne s'ouvrent jamais deux fois de la même façon.
+  entrees.attaques = IA.tirerAttaques();
   masquerMessage();
   definirEnCours(true);
 
   try {
     const systeme = await IA.construireSysteme(entrees.contexte, entrees.lienElliacare);
     const messageUtilisateur = IA.construireMessageUtilisateur(entrees);
-
-    let reponse = await IA.appelerIA(
-      IA.construireCorps({ systeme, messageUtilisateur, modele: configuration.modele }),
+    const appeler = (messages) => IA.appelerIA(
+      IA.construireCorps({ systeme, messages, modele: configuration.modele }),
       configuration
     );
+
+    let reponse = await appeler([{ role: 'user', content: messageUtilisateur }]);
     let resultat = IA.normaliserResultat(IA.analyserJson(reponse.texte));
 
     if (!resultat) {
       // Une seule relance, avec la consigne de format.
-      reponse = await IA.appelerIA(
-        IA.construireCorps({
-          systeme,
-          messageUtilisateur: messageUtilisateur + '\n\nRéponds uniquement avec le JSON demandé, sans aucun texte autour.',
-          modele: configuration.modele
-        }),
-        configuration
-      );
+      reponse = await appeler([{
+        role: 'user',
+        content: messageUtilisateur + '\n\nRéponds uniquement avec le JSON demandé, sans aucun texte autour.'
+      }]);
       resultat = IA.normaliserResultat(IA.analyserJson(reponse.texte));
     }
 
+    let reecrit = false;
     if (resultat) {
-      afficherResultats(resultat);
+      // Formule toute faite, longueur dépassée ou élément manquant : une réécriture automatique.
+      const problemes = IA.problemesARecrire(resultat, entrees);
+      if (problemes.length) {
+        try {
+          const correction = await appeler([
+            { role: 'user', content: messageUtilisateur },
+            { role: 'assistant', content: reponse.texte },
+            { role: 'user', content: IA.messageCorrection(problemes) }
+          ]);
+          const corrige = IA.normaliserResultat(IA.analyserJson(correction.texte));
+          if (corrige && IA.problemesARecrire(corrige, entrees).length <= problemes.length) {
+            resultat = corrige;
+            reecrit = true;
+          }
+        } catch (e) {
+          // La première version reste affichée, avec ses avertissements.
+        }
+      }
+    }
+
+    if (resultat) {
+      afficherResultats(resultat, entrees, reecrit);
     } else {
       afficherBrut(reponse.texte);
       afficherMessage(
@@ -347,7 +404,7 @@ async function generer(entreesForcees) {
 // Rendu
 // -----------------------------------------------------------------------------
 
-function creerBloc({ etiquette, texte, fautes, classe }) {
+function creerBloc({ etiquette, texte, fautes, classe, controle }) {
   const fragment = modeleBloc.content.cloneNode(true);
   const article = fragment.querySelector('.variante');
   if (classe) article.classList.add(classe);
@@ -360,26 +417,43 @@ function creerBloc({ etiquette, texte, fautes, classe }) {
 
   if (Array.isArray(fautes)) {
     const ligne = article.querySelector('.fautes');
-    ligne.textContent = 'Fautes volontaires : ' + (fautes.length ? fautes.join(', ') : 'aucune signalée');
+    let contenu = 'Fautes volontaires : ' + (fautes.length ? fautes.join(', ') : 'aucune signalée');
+    if (controle && !controle.fautesOk) contenu += ' (attendu : ' + controle.fautesAttendues + ')';
+    ligne.textContent = contenu;
     ligne.hidden = false;
   }
 
-  const proscrites = IA.expressionsProscrites(texte);
-  if (proscrites.length) {
+  const alertes = [];
+  const formules = controle ? controle.formules : IA.formulesToutesFaites(texte);
+  if (formules.length) alertes.push('formule toute faite « ' + formules.join(' », « ') + ' »');
+  if (controle && controle.tropLong) alertes.push('plus long que demandé (' + controle.caracteres + ' caractères, ' + controle.lignes + ' ligne(s))');
+  if (alertes.length) {
     const avertissement = article.querySelector('.avertissement');
-    avertissement.textContent = 'À relire : contient « ' + proscrites.join(' », « ') + ' ».';
+    avertissement.textContent = 'À relire : ' + alertes.join(', ') + '.';
     avertissement.hidden = false;
   }
   return article;
 }
 
-function afficherResultats(resultat) {
+function afficherResultats(resultat, entrees, reecrit) {
+  const longueur = entrees ? entrees.longueur : IA.LONGUEUR_PAR_DEFAUT;
   listeVariantes.replaceChildren();
+  // La ligne d'humour ne s'affiche que si la case Humour était cochée.
+  if (resultat.humour && entrees && entrees.humour) {
+    listeVariantes.appendChild(creerBloc({
+      etiquette: 'Humour',
+      texte: resultat.humour.texte,
+      fautes: resultat.humour.fautes,
+      classe: 'humour',
+      controle: IA.controlerTexte(resultat.humour.texte, resultat.humour.fautes, longueur, true)
+    }));
+  }
   for (const variante of resultat.variantes) {
     listeVariantes.appendChild(creerBloc({
-      etiquette: LIBELLES_ANGLES[variante.angle] || variante.angle,
+      etiquette: IA.libelleVariante(variante),
       texte: variante.texte,
-      fautes: variante.fautes
+      fautes: variante.fautes,
+      controle: IA.controlerTexte(variante.texte, variante.fautes, longueur, false)
     }));
   }
   if (resultat.suggestion) {
@@ -389,9 +463,11 @@ function afficherResultats(resultat) {
       classe: 'suggestion'
     }));
   }
-  const libelleCas = LIBELLES_CAS[resultat.cas];
-  infoCas.textContent = libelleCas || '';
-  infoCas.hidden = !libelleCas;
+  const infos = [];
+  if (LIBELLES_CAS[resultat.cas]) infos.push(LIBELLES_CAS[resultat.cas]);
+  if (reecrit) infos.push('Réécriture automatique effectuée (formule toute faite, longueur ou élément manquant).');
+  infoCas.textContent = infos.join(' ');
+  infoCas.hidden = infos.length === 0;
   zoneResultats.hidden = false;
 }
 

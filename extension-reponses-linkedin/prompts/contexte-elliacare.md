@@ -29,7 +29,7 @@ LANGAGE INTERDIT (tolérance zéro)
 - Approche commerciale par la peur
 - Solutionnisme technologique ("l'IA va tout résoudre")
 
-LANGAGE DE REFERENCE (à utiliser avec parcimonie, une expression au maximum par variante, seulement si elle vient naturellement)
+LANGAGE DE REFERENCE (repères de fond, pas des slogans à recopier : au plus une de ces expressions sur l'ensemble des quatre commentaires, et seulement si elle vient naturellement. Sinon, exprime la même idée avec les mots de Franck, au "je".)
 - "L'IA assiste, le clinicien décide"
 - "L'IA propose, le professionnel dispose"
 - "Médecine augmentée responsable et humaine"

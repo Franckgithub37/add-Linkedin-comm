@@ -47,13 +47,30 @@ test('Rien : invalide avec message', () => {
 test('Libellé affiché', () => assert.equal(IA.determinerMode('a', 'b', '').libelle, 'Mode : réponse à un commentaire'));
 
 console.log('Message utilisateur');
-test('Gabarit complet', () => {
-  const m = IA.construireMessageUtilisateur({ contexte: 'OCD', lienElliacare: false, mode: 'reponse_a_reponse', post: ' P ', commentaire: 'C', reponse: 'R' });
-  assert.equal(m, 'CONTEXTE: OCD\nLIEN_ELLIACARE: non\nMODE: reponse_a_reponse\n\nPOST:\nP\n\nCOMMENTAIRE:\nC\n\nREPONSE:\nR');
+test('Gabarit complet avec longueur, ironie, humour et attaques', () => {
+  const m = IA.construireMessageUtilisateur({
+    contexte: 'OCD', lienElliacare: false, mode: 'reponse_a_reponse', post: ' P ', commentaire: 'C', reponse: 'R',
+    longueur: 'court', ironie: 2, humour: true, attaques: ['aveu', 'question', 'chute', 'image de terrain']
+  });
+  assert.equal(m, 'CONTEXTE: OCD\nLIEN_ELLIACARE: non\nMODE: reponse_a_reponse\nLONGUEUR: court\nIRONIE: 2\nHUMOUR: oui\n'
+    + 'ATTAQUES: reflexion 1 = aveu | reflexion 2 = question | point_non_vu 1 = chute | point_non_vu 2 = image de terrain'
+    + '\n\nPOST:\nP\n\nCOMMENTAIRE:\nC\n\nREPONSE:\nR');
 });
-test('Champs vides omis', () => {
+test('Champs vides omis, réglages par défaut', () => {
   const m = IA.construireMessageUtilisateur({ contexte: 'IA', lienElliacare: true, mode: 'reponse_sans_contexte', post: '', commentaire: 'C', reponse: '' });
-  assert.equal(m, 'CONTEXTE: IA\nLIEN_ELLIACARE: oui\nMODE: reponse_sans_contexte\n\nCOMMENTAIRE:\nC');
+  assert.equal(m, 'CONTEXTE: IA\nLIEN_ELLIACARE: oui\nMODE: reponse_sans_contexte\nLONGUEUR: standard\nIRONIE: 1\nHUMOUR: non\n\nCOMMENTAIRE:\nC');
+});
+test('Ironie 0 conservée (pas remplacée par la valeur par défaut)', () => {
+  const m = IA.construireMessageUtilisateur({ contexte: 'IA', mode: 'commentaire_sur_post', post: 'P', ironie: 0 });
+  assert.ok(m.includes('\nIRONIE: 0\n'));
+});
+test('Tirage des attaques : quatre attaques différentes', () => {
+  for (let i = 0; i < 20; i++) {
+    const a = IA.tirerAttaques();
+    assert.equal(a.length, 4);
+    assert.equal(new Set(a).size, 4);
+    a.forEach((x) => assert.ok(IA.ATTAQUES.includes(x)));
+  }
 });
 test('Autre avec précision', () => {
   const m = IA.construireMessageUtilisateur({ contexte: 'Autre', precision: ' juridique ', lienElliacare: false, mode: 'commentaire_sur_post', post: 'P' });
@@ -68,7 +85,7 @@ console.log('Corps de requête');
 test('Sonnet 5.5 : réflexion coupée et repli serveur', () => {
   const c = IA.construireCorps({ systeme: 'S', messageUtilisateur: 'U', modele: 'claude-sonnet-5-5' });
   assert.equal(c.model, 'claude-sonnet-5-5');
-  assert.equal(c.max_tokens, 900);
+  assert.equal(c.max_tokens, 1600);
   assert.equal(c.system, 'S');
   assert.deepEqual(JSON.parse(JSON.stringify(c.messages)), [{ role: 'user', content: 'U' }]);
   assert.equal(c.thinking.type, 'between_tools');
@@ -112,8 +129,11 @@ const exemple = {
   cas: 'standard',
   variantes: [
     { angle: 'point_non_vu', texte: 'B ' + TIRET_LONG + ' b', fautes: ['ca'] },
-    { angle: 'reflexion', texte: 'A ; a', fautes: ['meme', 'a'] }
+    { angle: 'reflexion', texte: 'A ; a', fautes: ['meme', 'a'] },
+    { angle: 'reflexion', texte: 'A2', fautes: ['x', 'y'] },
+    { angle: 'point non vu', texte: 'B2', fautes: ['z', 'w'] }
   ],
+  humour: { texte: 'Une blague courte', fautes: ['ca (ça)'] },
   suggestion_elliacare: null
 };
 test('JSON entouré de balises de code', () => {
@@ -122,13 +142,18 @@ test('JSON entouré de balises de code', () => {
 });
 test('JSON entouré de texte', () => assert.ok(IA.analyserJson('Voici : ' + JSON.stringify(exemple) + ' fin')));
 test('Texte non JSON', () => assert.equal(IA.analyserJson('pas de json ici'), null));
-test('Ordre réflexion puis point non vu, textes nettoyés', () => {
+test('Quatre variantes : deux réflexions puis deux points non vus, textes nettoyés', () => {
   const r = IA.normaliserResultat(exemple);
-  assert.equal(r.variantes[0].angle, 'reflexion');
+  assert.deepEqual([...r.variantes.map((v) => IA.libelleVariante(v))], ['Réflexion 1', 'Réflexion 2', 'Point non vu 1', 'Point non vu 2']);
   assert.equal(r.variantes[0].texte, 'A. A');
-  assert.equal(r.variantes[1].texte, 'B, b');
+  assert.equal(r.variantes[2].texte, 'B, b');
   assert.deepEqual([...r.variantes[0].fautes], ['meme', 'a']);
+  assert.equal(r.humour.texte, 'Une blague courte');
   assert.equal(r.suggestion, null);
+});
+test('Humour absent : null', () => {
+  const r = IA.normaliserResultat({ ...exemple, humour: null });
+  assert.equal(r.humour, null);
 });
 test('Suggestion Elliacare conservée', () => {
   const r = IA.normaliserResultat({ ...exemple, suggestion_elliacare: 'Chez Elliacare, on part du terrain.' });
@@ -136,7 +161,38 @@ test('Suggestion Elliacare conservée', () => {
 });
 test('Structure invalide refusée', () => assert.equal(IA.normaliserResultat({ variantes: [] }), null));
 
-console.log('Expressions proscrites');
+console.log('Formules toutes faites et contrôles');
 test('Détection de "bravo"', () => assert.deepEqual([...IA.expressionsProscrites('Bravo pour ce post')], ['bravo']));
+test('Détection des tics signalés (accents et apostrophes typographiques)', () => {
+  const f = IA.formulesToutesFaites('Ce qui me frappe… Un point qu\u2019on oublie souvent. Ce qu\u2019on ne dit pas. Le plus frappant.');
+  for (const attendu of ['ce qui me frappe', "qu'on oublie souvent", "ce qu'on ne dit pas", 'le plus frappant']) {
+    assert.ok(f.includes(attendu), attendu);
+  }
+});
+test('Texte personnel sans formule : rien à signaler', () => {
+  assert.deepEqual([...IA.formulesToutesFaites('Moi je parie que le cadre existe deja, mais personne ne la lu.')], []);
+});
+test('Contrôle de longueur : court limité à une ligne de 140 caractères', () => {
+  assert.equal(IA.controlerTexte('Une ligne nette.', ['x'], 'court', false).tropLong, false);
+  assert.equal(IA.controlerTexte('Ligne 1.\nLigne 2.', ['x'], 'court', false).tropLong, true);
+  assert.equal(IA.controlerTexte('a'.repeat(200), ['x'], 'court', false).tropLong, true);
+});
+test('Fautes attendues = nombre de lignes', () => {
+  assert.equal(IA.controlerTexte('x', ['a'], 'court', false).fautesAttendues, 1);
+  assert.equal(IA.controlerTexte('x', ['a', 'b'], 'standard', false).fautesOk, true);
+  assert.equal(IA.controlerTexte('x', ['a'], 'developpe', false).fautesOk, false);
+  assert.equal(IA.controlerTexte('x', ['a'], 'developpe', true).fautesAttendues, 1, 'humour : une faute');
+});
+test('Problèmes à réécrire : formule interdite et humour manquant', () => {
+  const r = IA.normaliserResultat({ ...exemple, humour: null, variantes: exemple.variantes.map((v, i) => i === 1 ? { ...v, texte: 'Ce qui me frappe, c\'est ca.' } : v) });
+  const p = IA.problemesARecrire(r, { longueur: 'standard', humour: true });
+  assert.equal(p.length, 2);
+  assert.match(p[0], /Réflexion 1 : contient « ce qui me frappe »/);
+  assert.match(p[1], /humour/);
+  assert.match(IA.messageCorrection(p), /^Réécris le JSON complet/);
+});
+test('Résultat conforme : aucune réécriture', () => {
+  assert.deepEqual([...IA.problemesARecrire(IA.normaliserResultat(exemple), { longueur: 'standard', humour: true })], []);
+});
 
 console.log(`\n${reussis} tests unitaires réussis.`);

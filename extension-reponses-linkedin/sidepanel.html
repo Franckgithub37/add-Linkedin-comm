@@ -53,20 +53,48 @@
       </div>
     </section>
 
-    <section class="bloc" aria-label="Contexte">
-      <div class="pastilles" role="group" aria-label="Contexte">
-        <button type="button" class="pastille" data-contexte="Elliacare" aria-pressed="false">Elliacare</button>
-        <button type="button" class="pastille" data-contexte="OCD" aria-pressed="false">OCD</button>
-        <button type="button" class="pastille" data-contexte="IA" aria-pressed="false">IA</button>
-        <button type="button" class="pastille" data-contexte="Autre" aria-pressed="false">Autre</button>
+    <section class="bloc" aria-label="Réglages">
+      <div class="reglage">
+        <span class="reglage-titre" id="titre-contexte">Contexte</span>
+        <div class="pastilles" role="group" aria-labelledby="titre-contexte">
+          <button type="button" class="pastille" data-contexte="Elliacare" aria-pressed="false">Elliacare</button>
+          <button type="button" class="pastille" data-contexte="OCD" aria-pressed="false">OCD</button>
+          <button type="button" class="pastille" data-contexte="IA" aria-pressed="false">IA</button>
+          <button type="button" class="pastille" data-contexte="Autre" aria-pressed="false">Autre</button>
+        </div>
       </div>
       <input id="champ-precision" class="champ-precision" type="text" maxlength="80" placeholder="Précision de contexte (facultatif), ex. juridique, RH" aria-label="Précision de contexte" hidden>
 
-      <label class="interrupteur">
-        <input id="lien-elliacare" type="checkbox" role="switch">
-        <span class="piste" aria-hidden="true"></span>
-        <span class="interrupteur-libelle">Lien Elliacare</span>
-      </label>
+      <div class="reglage">
+        <span class="reglage-titre" id="titre-longueur">Longueur</span>
+        <div class="pastilles" role="group" aria-labelledby="titre-longueur">
+          <button type="button" class="pastille" data-longueur="court" aria-pressed="false" title="Une ligne percutante, une faute">Court · 1 ligne</button>
+          <button type="button" class="pastille" data-longueur="standard" aria-pressed="false" title="Deux lignes maximum, deux fautes">Standard · 2 lignes</button>
+          <button type="button" class="pastille" data-longueur="developpe" aria-pressed="false" title="Trois lignes maximum, trois fautes">Développé · 3 lignes</button>
+        </div>
+      </div>
+
+      <div class="reglage">
+        <span class="reglage-titre" id="titre-ironie">Ironie</span>
+        <div class="pastilles" role="group" aria-labelledby="titre-ironie">
+          <button type="button" class="pastille" data-ironie="0" aria-pressed="false" title="Aucune ironie, ton direct et sincère">0 · aucune</button>
+          <button type="button" class="pastille" data-ironie="1" aria-pressed="false" title="Une touche d'humour sec ou d'autodérision">1 · légère</button>
+          <button type="button" class="pastille" data-ironie="2" aria-pressed="false" title="Ironie assumée, ton piquant et complice">2 · assumée</button>
+        </div>
+      </div>
+
+      <div class="interrupteurs">
+        <label class="interrupteur">
+          <input id="humour" type="checkbox" role="switch">
+          <span class="piste" aria-hidden="true"></span>
+          <span class="interrupteur-libelle">Humour <span class="discret">(une ligne en plus)</span></span>
+        </label>
+        <label class="interrupteur">
+          <input id="lien-elliacare" type="checkbox" role="switch">
+          <span class="piste" aria-hidden="true"></span>
+          <span class="interrupteur-libelle">Lien Elliacare</span>
+        </label>
+      </div>
     </section>
 
     <div class="actions">

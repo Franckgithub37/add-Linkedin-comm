@@ -143,7 +143,18 @@ textarea:focus, input[type="text"]:focus {
 
 .ligne-droite { display: flex; justify-content: flex-end; }
 
-/* Pastilles de contexte */
+/* Réglages : contexte, longueur, ironie */
+.reglage { display: flex; flex-direction: column; gap: 5px; }
+.reglage-titre {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--texte-discret);
+}
+.interrupteurs { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.discret { color: var(--texte-discret); font-size: 11px; }
+
+/* Pastilles */
 .pastilles { display: flex; flex-wrap: wrap; gap: 6px; }
 .pastille {
   font: inherit;
@@ -323,3 +334,4 @@ textarea:focus, input[type="text"]:focus {
 }
 .variante.suggestion { border-style: dashed; }
 .variante.brut .variante-texte { font-size: 12px; }
+.variante.humour { border-color: color-mix(in srgb, var(--accent) 45%, var(--bordure)); }

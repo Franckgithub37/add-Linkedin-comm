@@ -1,6 +1,6 @@
 # add-Linkedin-comm
 
-Extension Chrome personnelle **Réponses LinkedIn** : capture au clavier un texte sélectionné sur LinkedIn (post, commentaire, réponse), puis propose deux réponses prêtes à coller, une en mode "réflexion", l'autre en mode "point non vu".
+Extension Chrome personnelle **Réponses LinkedIn** : capture au clavier un texte sélectionné sur LinkedIn (post, commentaire, réponse), puis propose quatre commentaires courts dans la voix de Franck (deux "réflexion", deux "point non vu"), avec longueur, niveau d'ironie et ligne d'humour au choix.
 
 - Extension (à charger telle quelle dans Chrome) : [`extension-reponses-linkedin/`](extension-reponses-linkedin/)
 - Guide complet (installation, clé API, raccourcis, usage, dépannage) : [`extension-reponses-linkedin/README.md`](extension-reponses-linkedin/README.md)
@@ -22,7 +22,7 @@ vercel.json                    configuration du déploiement Vercel
 1. Téléchargez le `.zip` depuis la page Vercel du projet (ou clonez ce dépôt).
 2. `chrome://extensions`, activez le **Mode développeur**, puis **Charger l'extension non empaquetée** et choisissez le dossier `extension-reponses-linkedin`.
 3. Options de l'extension : collez la clé API Anthropic, **Enregistrer**, **Tester la clé**.
-4. Sur LinkedIn : sélectionnez un post puis `Alt+Shift+1`, choisissez un contexte, **Générer**.
+4. Sur LinkedIn : sélectionnez un post puis `Alt+Shift+1`, choisissez contexte, longueur et ironie, **Générer**.
 
 ## Déploiement Vercel
 
