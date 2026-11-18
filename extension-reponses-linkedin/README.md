@@ -71,12 +71,13 @@ Conflits possibles : selon le système, la disposition du clavier ou d'autres ex
 3. Facultatif : sélectionnez la réponse d'un tiers à ce commentaire, puis `Alt+Shift+3` (badge `PCR`).
 4. Dans le panneau, réglez (chaque choix est mémorisé) :
    - **Contexte** : Elliacare, OCD, IA ou Autre (avec une précision facultative, par exemple "juridique" ou "RH") ;
-   - **Longueur** : Court (une ligne percutante), Standard (deux lignes maximum) ou Développé (trois lignes maximum, jamais au-delà) ;
+   - **Longueur** : Flash (une seule ligne très courte), Court (deux lignes maximum) ou Standard (trois lignes maximum, jamais au-delà). Dans tous les cas, des phrases courtes : 12 mots maximum par phrase (10 en Flash) ;
    - **Ironie** : 0 (aucune, ton direct et sincère), 1 (une touche d'humour sec ou d'autodérision), 2 (ironie assumée, piquante et complice) ;
    - **Humour** : ajoute une ligne drôle et percutante, en plus des quatre commentaires ;
+   - **3 fautes** : passe de deux fautes volontaires (par défaut) à trois ;
    - **Lien Elliacare** : chaque commentaire fait alors un lien concret avec Elliacare.
 5. Cliquez sur **Générer**, appuyez sur `Entrée` (ou `Ctrl+Entrée` depuis une zone de texte), ou utilisez `Alt+Shift+G`.
-6. Les commentaires s'affichent : **Humour** (si coché), **Réflexion 1**, **Réflexion 2**, **Point non vu 1**, **Point non vu 2**. Sous chacun, la ligne grise "Fautes volontaires" liste les fautes glissées exprès : autant de fautes que de lignes (une en Court, deux en Standard, trois en Développé, une pour l'humour). Cette ligne n'est jamais copiée.
+6. Les commentaires s'affichent : **Humour** (si coché), **Réflexion 1**, **Réflexion 2**, **Point non vu 1**, **Point non vu 2**. Sous chacun, la ligne grise "Fautes volontaires" liste les fautes glissées exprès : deux par commentaire (trois avec l'option), quelle que soit la longueur, ligne d'humour comprise. Une des fautes peut être deux mots collés ("parceque", "enfait", "dela"), seulement si la lecture reste immédiate. Cette ligne n'est jamais copiée, et elle indique "(attendu : N)" si le compte n'y est pas.
 7. Cliquez sur l'icône de copie à droite du commentaire choisi : elle devient une coche pendant un instant. Collez dans LinkedIn et publiez vous-même.
 8. **Régénérer** relance avec les mêmes entrées. Les ouvertures des commentaires sont tirées au sort à chaque génération (prise de position, aveu, antithèse sèche, question, retournement, image de terrain, chute, désaccord poli) : deux générations ne se ressemblent pas.
 
@@ -84,7 +85,7 @@ Conflits possibles : selon le système, la disposition du clavier ou d'autres ex
 
 Les commentaires sont écrits à la première personne, dans la voix de Franck : prise de position, doute ou aveu assumés, "je" porteur dans au moins trois commentaires sur quatre. Les formules toutes faites sont interdites ("Ce qui me frappe", "Le plus frappant", "Ce que l'on oublie souvent", "Un point qu'on oublie souvent", "Ce qu'on ne dit pas", "Le vrai sujet", "bravo", "merci pour le partage", etc.).
 
-Contrôle automatique : si un commentaire contient malgré tout une de ces formules, dépasse la longueur demandée, ou si un élément manque, l'extension demande aussitôt une réécriture au modèle (une seule fois). Si un défaut subsiste, une alerte rouge "À relire" s'affiche sous le commentaire concerné.
+Contrôle automatique : si un commentaire contient malgré tout une de ces formules, dépasse la longueur demandée, contient une phrase trop longue, ou si un élément manque, l'extension demande aussitôt une réécriture au modèle (une seule fois). Si un défaut subsiste, une alerte rouge "À relire" s'affiche sous le commentaire concerné.
 
 Le mode est déduit des emplacements remplis et affiché en haut du panneau :
 

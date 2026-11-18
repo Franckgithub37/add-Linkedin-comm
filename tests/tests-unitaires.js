@@ -50,15 +50,15 @@ console.log('Message utilisateur');
 test('Gabarit complet avec longueur, ironie, humour et attaques', () => {
   const m = IA.construireMessageUtilisateur({
     contexte: 'OCD', lienElliacare: false, mode: 'reponse_a_reponse', post: ' P ', commentaire: 'C', reponse: 'R',
-    longueur: 'court', ironie: 2, humour: true, attaques: ['aveu', 'question', 'chute', 'image de terrain']
+    longueur: 'flash', ironie: 2, humour: true, nbFautes: 3, attaques: ['aveu', 'question', 'chute', 'image de terrain']
   });
-  assert.equal(m, 'CONTEXTE: OCD\nLIEN_ELLIACARE: non\nMODE: reponse_a_reponse\nLONGUEUR: court\nIRONIE: 2\nHUMOUR: oui\n'
+  assert.equal(m, 'CONTEXTE: OCD\nLIEN_ELLIACARE: non\nMODE: reponse_a_reponse\nLONGUEUR: flash\nIRONIE: 2\nHUMOUR: oui\nFAUTES: 3\n'
     + 'ATTAQUES: reflexion 1 = aveu | reflexion 2 = question | point_non_vu 1 = chute | point_non_vu 2 = image de terrain'
     + '\n\nPOST:\nP\n\nCOMMENTAIRE:\nC\n\nREPONSE:\nR');
 });
 test('Champs vides omis, réglages par défaut', () => {
   const m = IA.construireMessageUtilisateur({ contexte: 'IA', lienElliacare: true, mode: 'reponse_sans_contexte', post: '', commentaire: 'C', reponse: '' });
-  assert.equal(m, 'CONTEXTE: IA\nLIEN_ELLIACARE: oui\nMODE: reponse_sans_contexte\nLONGUEUR: standard\nIRONIE: 1\nHUMOUR: non\n\nCOMMENTAIRE:\nC');
+  assert.equal(m, 'CONTEXTE: IA\nLIEN_ELLIACARE: oui\nMODE: reponse_sans_contexte\nLONGUEUR: standard\nIRONIE: 1\nHUMOUR: non\nFAUTES: 2\n\nCOMMENTAIRE:\nC');
 });
 test('Ironie 0 conservée (pas remplacée par la valeur par défaut)', () => {
   const m = IA.construireMessageUtilisateur({ contexte: 'IA', mode: 'commentaire_sur_post', post: 'P', ironie: 0 });
@@ -172,16 +172,26 @@ test('Détection des tics signalés (accents et apostrophes typographiques)', ()
 test('Texte personnel sans formule : rien à signaler', () => {
   assert.deepEqual([...IA.formulesToutesFaites('Moi je parie que le cadre existe deja, mais personne ne la lu.')], []);
 });
-test('Contrôle de longueur : court limité à une ligne de 140 caractères', () => {
-  assert.equal(IA.controlerTexte('Une ligne nette.', ['x'], 'court', false).tropLong, false);
-  assert.equal(IA.controlerTexte('Ligne 1.\nLigne 2.', ['x'], 'court', false).tropLong, true);
-  assert.equal(IA.controlerTexte('a'.repeat(200), ['x'], 'court', false).tropLong, true);
+test('Formats : flash 1 ligne de 90 caractères, court 2 lignes, standard 3 lignes', () => {
+  assert.equal(IA.controlerTexte('Une ligne nette.', [], 'flash', false).tropLong, false);
+  assert.equal(IA.controlerTexte('Ligne 1.\nLigne 2.', [], 'flash', false).tropLong, true);
+  assert.equal(IA.controlerTexte('a '.repeat(60), [], 'flash', false).tropLong, true, '120 caractères en flash : trop long');
+  assert.equal(IA.controlerTexte('Ligne 1.\nLigne 2.', [], 'court', false).tropLong, false);
+  assert.equal(IA.controlerTexte('L1.\nL2.\nL3.', [], 'court', false).tropLong, true);
+  assert.equal(IA.controlerTexte('L1.\nL2.\nL3.', [], 'standard', false).tropLong, false);
+  assert.equal(IA.controlerTexte('L1.\nL2.\nL3.\nL4.', [], 'standard', false).tropLong, true);
 });
-test('Fautes attendues = nombre de lignes', () => {
-  assert.equal(IA.controlerTexte('x', ['a'], 'court', false).fautesAttendues, 1);
+test('Phrases courtes : une grande phrase est signalée', () => {
+  const longue = 'Je pense que la formation des équipes soignantes reste le premier levier qui permet vraiment de sécuriser les usages.';
+  assert.equal(IA.controlerTexte(longue, [], 'standard', false).phraseTropLongue, true);
+  assert.equal(IA.controlerTexte('Je parie sur le temps protégé. Pas sur le catalogue.', [], 'standard', false).phraseTropLongue, false);
+});
+test('Fautes : deux par défaut, trois en option, quelle que soit la longueur', () => {
+  assert.equal(IA.controlerTexte('x', ['a', 'b'], 'flash', false).fautesAttendues, 2);
   assert.equal(IA.controlerTexte('x', ['a', 'b'], 'standard', false).fautesOk, true);
-  assert.equal(IA.controlerTexte('x', ['a'], 'developpe', false).fautesOk, false);
-  assert.equal(IA.controlerTexte('x', ['a'], 'developpe', true).fautesAttendues, 1, 'humour : une faute');
+  assert.equal(IA.controlerTexte('x', ['a', 'b'], 'standard', false, 3).fautesOk, false);
+  assert.equal(IA.controlerTexte('x', ['a', 'b', 'c'], 'court', false, 3).fautesOk, true);
+  assert.equal(IA.controlerTexte('x', ['a', 'b'], 'flash', true).fautesAttendues, 2, 'humour : même règle');
 });
 test('Problèmes à réécrire : formule interdite et humour manquant', () => {
   const r = IA.normaliserResultat({ ...exemple, humour: null, variantes: exemple.variantes.map((v, i) => i === 1 ? { ...v, texte: 'Ce qui me frappe, c\'est ca.' } : v) });
@@ -193,6 +203,13 @@ test('Problèmes à réécrire : formule interdite et humour manquant', () => {
 });
 test('Résultat conforme : aucune réécriture', () => {
   assert.deepEqual([...IA.problemesARecrire(IA.normaliserResultat(exemple), { longueur: 'standard', humour: true })], []);
+});
+test('Problèmes à réécrire : phrase trop longue', () => {
+  const longue = 'Je pense que la formation des équipes soignantes reste le premier levier qui permet vraiment de sécuriser les usages.';
+  const r = IA.normaliserResultat({ ...exemple, variantes: exemple.variantes.map((v, i) => i === 3 ? { ...v, texte: longue } : v) });
+  const p = IA.problemesARecrire(r, { longueur: 'standard', humour: false });
+  assert.equal(p.length, 1);
+  assert.match(p[0], /Point non vu 2 : une phrase de \d+ mots, 12 mots maximum/);
 });
 
 console.log(`\n${reussis} tests unitaires réussis.`);

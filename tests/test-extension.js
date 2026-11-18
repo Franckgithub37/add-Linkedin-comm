@@ -74,32 +74,33 @@ function reponseModele(objet) {
   };
 }
 
+// Exemple au format standard : 3 lignes maximum, phrases courtes, 2 fautes par commentaire.
 const RESULTAT_TYPE = {
   mode: 'reponse_a_reponse',
   cas: 'standard',
   variantes: [
     {
       angle: 'point_non_vu',
-      texte: 'Sauf que former sans temps dégagé reste un voeu pieux ' + TIRET_LONG + ' on forme le soir, on oublie le lendemain.\nMoi je parie sur le temps protégé ; pas sur le catalogue.',
+      texte: 'Former sans créneau, c\'est un voeu pieux ' + TIRET_LONG + ' on oublie le lendemain.\nMoi je parie sur le temps protégé ; pas sur le catalogue.',
       fautes: ['voeu (vœu)', 'tres (très)']
     },
     {
       angle: 'reflexion',
-      texte: 'J\'ai du mal avec les cadres que personne n\'a lus.\nUn texte rangé dans un intranet, ca ne protège pas grand monde ;-)',
-      fautes: ['ca (ça)', 'a (à)']
+      texte: 'J\'ai du mal avec les cadres que personne n\'a lus.\nUn texte rangé dans un intranet, ca ne protège personne ;-)',
+      fautes: ['ca (ça)', 'enfait (en fait)']
     },
     {
       angle: 'reflexion',
-      texte: 'Je me méfie des chartes signées a la va-vite.\nOn coche la case, et la pratique reste la meme.',
+      texte: 'Je me méfie des chartes signées a la va-vite.\nOn coche la case.\nEt la pratique reste la meme.',
       fautes: ['a (à)', 'meme (même)']
     },
     {
       angle: 'point_non_vu',
-      texte: 'Et pourtant, le premier frein n\'est pas le cadre, c\'est l\'agenda des équipes.\nSans créneau protégé, la formation passe toujours aprés l\'urgence.',
-      fautes: ['aprés (après)', 'deja (déjà)']
+      texte: 'Et pourtant, le premier frein, c\'est l\'agenda des équipes.\nSans créneau protégé, la formation passe aprés l\'urgence.',
+      fautes: ['aprés (après)', 'parceque (parce que)']
     }
   ],
-  humour: { texte: 'Une charte IA sans formation, c\'est un GPS sans écran : ca rassure, ca ne guide pas.', fautes: ['ca (ça)'] },
+  humour: { texte: 'Une charte IA sans formation, c\'est un GPS sans écran ;-)', fautes: ['ca (ça)', 'dela (de la)'] },
   suggestion_elliacare: null
 };
 
@@ -345,7 +346,7 @@ async function parcoursComplet() {
       assert.ok(corps.system.startsWith('Tu écris des commentaires LinkedIn à la place de Franck Lavroff'));
       assert.ok(!corps.system.includes('COMPLEMENT ELLIACARE'), 'pas de complément Elliacare en contexte OCD');
       const message = corps.messages[0].content;
-      assert.ok(message.startsWith('CONTEXTE: OCD\nLIEN_ELLIACARE: non\nMODE: reponse_a_reponse\nLONGUEUR: standard\nIRONIE: 1\nHUMOUR: non\nATTAQUES: reflexion 1 = '));
+      assert.ok(message.startsWith('CONTEXTE: OCD\nLIEN_ELLIACARE: non\nMODE: reponse_a_reponse\nLONGUEUR: standard\nIRONIE: 1\nHUMOUR: non\nFAUTES: 2\nATTAQUES: reflexion 1 = '));
       assert.match(message, /\nATTAQUES: reflexion 1 = [a-z ]+ \| reflexion 2 = [a-z ]+ \| point_non_vu 1 = [a-z ]+ \| point_non_vu 2 = [a-z ]+\n\nPOST:\n/);
       assert.ok(message.includes('COMMENTAIRE:\n' + TEXTES.commentaire));
       assert.ok(message.endsWith('REPONSE:\n' + TEXTES.reponse));
@@ -357,15 +358,15 @@ async function parcoursComplet() {
         assert.ok(!t.includes(TIRET_LONG), 'pas de tiret long');
         assert.ok(!/;(?!-\))/.test(t), 'pas de point-virgule hors smiley');
       }
-      assert.ok(textes[2].includes(', on forme le soir'));
+      assert.ok(textes[2].includes('voeu pieux, on oublie le lendemain'));
       assert.ok(textes[2].includes('temps protégé. Pas sur le catalogue'));
       assert.ok(textes[0].endsWith(';-)'));
       const fautes = await panneau.$$eval('.variante .fautes', (e) => e.map((x) => x.textContent));
       assert.deepEqual(fautes, [
-        'Fautes volontaires : ca (ça), a (à)',
+        'Fautes volontaires : ca (ça), enfait (en fait)',
         'Fautes volontaires : a (à), meme (même)',
         'Fautes volontaires : voeu (vœu), tres (très)',
-        'Fautes volontaires : aprés (après), deja (déjà)'
+        'Fautes volontaires : aprés (après), parceque (parce que)'
       ]);
       assert.equal(await panneau.isVisible('.avertissement'), false, 'aucun avertissement sur un résultat conforme');
       assert.equal(await panneau.isVisible('.variante.suggestion'), false);
@@ -426,41 +427,68 @@ async function parcoursComplet() {
       assert.equal(sansAttaques(requetesIA.at(-1)), sansAttaques(requetesIA.at(-2)));
     });
 
-    await etape('Longueur court, ironie 2, humour coché : transmis, mémorisés, bloc Humour en tête', async () => {
-      await panneau.click('[data-longueur="court"]');
+    await etape('Flash, ironie 2, humour coché : transmis, mémorisés, bloc Humour en tête', async () => {
+      await panneau.click('[data-longueur="flash"]');
       await panneau.click('[data-ironie="2"]');
       await panneau.click('.interrupteur:has(#humour)');
       assert.equal(await panneau.isChecked('#humour'), true);
-      const reglages = await sw.evaluate(() => chrome.storage.local.get(['longueur', 'ironie', 'humour']));
-      assert.deepEqual(reglages, { longueur: 'court', ironie: 2, humour: true });
-      const court = {
+      const reglages = await sw.evaluate(() => chrome.storage.local.get(['format', 'ironie', 'humour']));
+      assert.deepEqual(reglages, { format: 'flash', ironie: 2, humour: true });
+      const flash = {
         ...RESULTAT_TYPE,
         variantes: [
-          { angle: 'reflexion', texte: 'Moi je dirais qu\'un cadre non lu, c\'est deja un cadre perdu.', fautes: ['deja (déjà)'] },
-          { angle: 'reflexion', texte: 'J\'avoue : je signe les chartes plus vite que je ne les lis ;-)', fautes: ['a (à)'] },
-          { angle: 'point_non_vu', texte: 'La formation a besoin d\'un créneau, pas d\'un voeu.', fautes: ['voeu (vœu)'] },
-          { angle: 'point_non_vu', texte: 'Sans agenda protégé, l\'urgence gagne a chaque fois.', fautes: ['a (à)'] }
+          { angle: 'reflexion', texte: 'Un cadre non lu, c\'est deja un cadre perdu.', fautes: ['deja (déjà)', 'enfait (en fait)'] },
+          { angle: 'reflexion', texte: 'J\'avoue : je signe les chartes sans les lire ;-)', fautes: ['a (à)', 'ca (ça)'] },
+          { angle: 'point_non_vu', texte: 'La formation veut un créneau, pas un voeu.', fautes: ['voeu (vœu)', 'tres (très)'] },
+          { angle: 'point_non_vu', texte: 'Sans agenda protégé, l\'urgence gagne a chaque fois.', fautes: ['a (à)', 'dela (de la)'] }
         ]
       };
-      filReponses.push(reponseModele(court));
+      filReponses.push(reponseModele(flash));
       const avant = requetesIA.length;
       await panneau.click('#btn-generer');
       await panneau.waitForSelector('.variante.humour');
       assert.equal(requetesIA.length, avant + 1, 'résultat conforme : pas de réécriture');
       const message = requetesIA.at(-1).corps.messages[0].content;
-      assert.ok(message.includes('\nLONGUEUR: court\nIRONIE: 2\nHUMOUR: oui\n'));
+      assert.ok(message.includes('\nLONGUEUR: flash\nIRONIE: 2\nHUMOUR: oui\nFAUTES: 2\n'));
       const etiquettes = await panneau.$$eval('.variante .etiquette', (e) => e.map((x) => x.textContent));
       assert.deepEqual(etiquettes, ['Humour', 'Réflexion 1', 'Réflexion 2', 'Point non vu 1', 'Point non vu 2']);
       const fautes = await panneau.$$eval('.variante .fautes', (e) => e.map((x) => x.textContent));
-      assert.ok(fautes.every((f) => !f.includes('attendu')), 'une faute par ligne en mode court');
+      assert.ok(fautes.every((f) => !f.includes('attendu')), 'deux fautes par commentaire');
+      assert.equal(await panneau.isVisible('.avertissement'), false);
       await panneau.reload();
-      assert.equal(await panneau.getAttribute('[data-longueur="court"]', 'aria-pressed'), 'true');
+      assert.equal(await panneau.getAttribute('[data-longueur="flash"]', 'aria-pressed'), 'true');
       assert.equal(await panneau.getAttribute('[data-ironie="2"]', 'aria-pressed'), 'true');
       assert.equal(await panneau.isChecked('#humour'), true);
       // Retour aux réglages par défaut pour la suite
       await panneau.click('[data-longueur="standard"]');
       await panneau.click('[data-ironie="1"]');
       await panneau.click('.interrupteur:has(#humour)');
+    });
+
+    await etape('Option 3 fautes : transmise, mémorisée, écart signalé sous chaque commentaire', async () => {
+      assert.equal(await panneau.isChecked('#trois-fautes'), false, '2 fautes par défaut');
+      await panneau.click('.interrupteur:has(#trois-fautes)');
+      assert.deepEqual(await sw.evaluate(() => chrome.storage.local.get('troisFautes')), { troisFautes: true });
+      await panneau.click('#btn-generer');
+      await panneau.waitForFunction(() => !document.querySelector('#btn-generer').disabled);
+      assert.ok(requetesIA.at(-1).corps.messages[0].content.includes('\nFAUTES: 3\n'));
+      const fautes = await panneau.$$eval('.variante .fautes', (e) => e.map((x) => x.textContent));
+      assert.ok(fautes.every((f) => f.endsWith('(attendu : 3)')), 'le modèle factice n\'en met que 2');
+      await panneau.click('.interrupteur:has(#trois-fautes)');
+    });
+
+    await etape('Phrase trop longue : réécriture automatique', async () => {
+      const longue = {
+        ...RESULTAT_TYPE,
+        variantes: RESULTAT_TYPE.variantes.map((v, i) => i === 2 ? { ...v, texte: 'Je pense que la formation des équipes soignantes reste le premier levier qui permet vraiment de sécuriser les usages.' } : v)
+      };
+      filReponses.push(reponseModele(longue), reponseModele(RESULTAT_TYPE));
+      const avant = requetesIA.length;
+      await panneau.click('#btn-generer');
+      await panneau.waitForFunction(() => !document.querySelector('#btn-generer').disabled);
+      assert.equal(requetesIA.length, avant + 2);
+      assert.match(requetesIA.at(-1).corps.messages[2].content, /Réflexion 2 : une phrase de \d+ mots, 12 mots maximum/);
+      assert.equal(await panneau.isVisible('.avertissement'), false);
     });
 
     await etape('Formule toute faite détectée : réécriture automatique, fil de conversation transmis', async () => {

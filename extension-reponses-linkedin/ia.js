@@ -20,15 +20,19 @@
     reponse_sans_contexte: 'réponse à un commentaire, sans le post'
   };
 
-  // Longueurs proposées : le nombre de fautes volontaires est égal au nombre de lignes.
+  // Formats proposés. maxMotsPhrase : longueur maximale d'une phrase (pas de grandes phrases).
   const LONGUEURS = {
-    court: { libelle: 'Court', lignes: 1, maxCaracteres: 140 },
-    standard: { libelle: 'Standard', lignes: 2, maxCaracteres: 260 },
-    developpe: { libelle: 'Développé', lignes: 3, maxCaracteres: 380 }
+    flash: { libelle: 'Flash', lignes: 1, maxCaracteres: 90, maxMotsPhrase: 10 },
+    court: { libelle: 'Court', lignes: 2, maxCaracteres: 170, maxMotsPhrase: 12 },
+    standard: { libelle: 'Standard', lignes: 3, maxCaracteres: 250, maxMotsPhrase: 12 }
   };
   const LONGUEUR_PAR_DEFAUT = 'standard';
   const IRONIE_PAR_DEFAUT = 1;
-  const HUMOUR_MAX_CARACTERES = 120;
+  const HUMOUR_MAX_CARACTERES = 100;
+  // Fautes volontaires : deux par défaut, trois en option, quelle que soit la longueur.
+  const FAUTES_PAR_DEFAUT = 2;
+  // Tolérance avant de demander une réécriture (le modèle compte mal les mots).
+  const TOLERANCE_MOTS = 3;
 
   // Façons d'ouvrir un commentaire (décrites dans le prompt système).
   // Un tirage au sort à chaque génération évite que les réponses se ressemblent toutes.
@@ -46,6 +50,10 @@
 
   function normaliserLongueur(longueur) {
     return Object.prototype.hasOwnProperty.call(LONGUEURS, longueur) ? longueur : LONGUEUR_PAR_DEFAUT;
+  }
+
+  function normaliserFautes(fautes) {
+    return Number(fautes) === 3 ? 3 : FAUTES_PAR_DEFAUT;
   }
 
   function normaliserIronie(ironie) {
@@ -138,7 +146,8 @@
       'MODE: ' + entrees.mode,
       'LONGUEUR: ' + normaliserLongueur(entrees.longueur),
       'IRONIE: ' + normaliserIronie(entrees.ironie),
-      'HUMOUR: ' + (entrees.humour ? 'oui' : 'non')
+      'HUMOUR: ' + (entrees.humour ? 'oui' : 'non'),
+      'FAUTES: ' + normaliserFautes(entrees.nbFautes)
     ];
     if (Array.isArray(entrees.attaques) && entrees.attaques.length) {
       lignes.push('ATTAQUES: ' + EMPLACEMENTS_VARIANTES
@@ -535,37 +544,56 @@
     return (texte || '').split('\n').filter((l) => l.trim() !== '').length;
   }
 
+  /** Nombre de mots de la phrase la plus longue (phrases coupées sur . ! ? ... et retours à la ligne). */
+  function motsPlusLonguePhrase(texte) {
+    const phrases = (texte || '').split(/[.!?…]+|\n/);
+    let max = 0;
+    for (const phrase of phrases) {
+      const mots = phrase.split(/\s+/).filter((m) => /\p{L}/u.test(m));
+      if (mots.length > max) max = mots.length;
+    }
+    return max;
+  }
+
   /**
    * Contrôle d'un commentaire par rapport aux réglages : formules interdites,
-   * longueur (avec une tolérance de 15 %), nombre de fautes attendu.
+   * longueur (tolérance de 15 %), longueur des phrases, nombre de fautes attendu.
    */
-  function controlerTexte(texte, fautes, longueur, estHumour) {
+  function controlerTexte(texte, fautes, longueur, estHumour, nbFautes) {
     const reglage = LONGUEURS[normaliserLongueur(longueur)];
     const maxCaracteres = estHumour ? HUMOUR_MAX_CARACTERES : reglage.maxCaracteres;
     const maxLignes = estHumour ? 1 : reglage.lignes;
+    const maxMotsPhrase = estHumour ? LONGUEURS.flash.maxMotsPhrase : reglage.maxMotsPhrase;
     const caracteres = (texte || '').length;
     const lignes = compterLignes(texte);
-    const fautesAttendues = estHumour ? 1 : reglage.lignes;
+    const motsPhrase = motsPlusLonguePhrase(texte);
+    const fautesAttendues = normaliserFautes(nbFautes);
     return {
       formules: formulesToutesFaites(texte),
       tropLong: caracteres > Math.round(maxCaracteres * 1.15) || lignes > maxLignes,
+      phraseTropLongue: motsPhrase > maxMotsPhrase + TOLERANCE_MOTS,
       caracteres,
       lignes,
+      motsPhrase,
       maxCaracteres,
       maxLignes,
+      maxMotsPhrase,
       fautesAttendues,
       fautesOk: Array.isArray(fautes) && fautes.length === fautesAttendues
     };
   }
 
-  /** Liste des corrections à demander au modèle (formules, longueur, éléments manquants). */
+  /** Liste des corrections à demander au modèle (formules, longueur, phrases, éléments manquants). */
   function problemesARecrire(resultat, reglages) {
     const problemes = [];
     const longueur = normaliserLongueur(reglages.longueur);
+    const signaler = (libelle, c) => {
+      if (c.formules.length) problemes.push(libelle + ' : contient « ' + c.formules.join(' », « ') + ' », formule toute faite interdite.');
+      if (c.tropLong) problemes.push(libelle + ' : ' + c.caracteres + ' caractères sur ' + c.lignes + ' ligne(s), le format impose ' + c.maxCaracteres + ' caractères et ' + c.maxLignes + ' ligne(s) au maximum.');
+      if (c.phraseTropLongue) problemes.push(libelle + ' : une phrase de ' + c.motsPhrase + ' mots, ' + c.maxMotsPhrase + ' mots maximum par phrase. Coupe ou raccourcis.');
+    };
     for (const v of resultat.variantes) {
-      const c = controlerTexte(v.texte, v.fautes, longueur, false);
-      if (c.formules.length) problemes.push(libelleVariante(v) + ' : contient « ' + c.formules.join(' », « ') + ' », formule toute faite interdite.');
-      if (c.tropLong) problemes.push(libelleVariante(v) + ' : ' + c.caracteres + ' caractères sur ' + c.lignes + ' ligne(s), la longueur ' + longueur + ' impose ' + c.maxCaracteres + ' caractères et ' + c.maxLignes + ' ligne(s) au maximum.');
+      signaler(libelleVariante(v), controlerTexte(v.texte, v.fautes, longueur, false, reglages.nbFautes));
     }
     const nbReflexions = resultat.variantes.filter((v) => v.angle === 'reflexion').length;
     const nbPoints = resultat.variantes.filter((v) => v.angle === 'point_non_vu').length;
@@ -574,9 +602,7 @@
       if (!resultat.humour) {
         problemes.push('La ligne "humour" est demandée et manque.');
       } else {
-        const c = controlerTexte(resultat.humour.texte, resultat.humour.fautes, longueur, true);
-        if (c.formules.length) problemes.push('Humour : contient « ' + c.formules.join(' », « ') + ' », formule toute faite interdite.');
-        if (c.tropLong) problemes.push('Humour : ' + c.caracteres + ' caractères, une seule ligne de ' + HUMOUR_MAX_CARACTERES + ' caractères au maximum.');
+        signaler('Humour', controlerTexte(resultat.humour.texte, resultat.humour.fautes, longueur, true, reglages.nbFautes));
       }
     }
     return problemes;
@@ -585,7 +611,7 @@
   function messageCorrection(problemes) {
     return 'Réécris le JSON complet en corrigeant ces points, sans toucher à ce qui est correct :\n- '
       + problemes.join('\n- ')
-      + '\nGarde la voix personnelle de Franck, les attaques demandées, la longueur demandée et autant de fautes que de lignes. Réponds uniquement avec le JSON demandé, sans aucun texte autour.';
+      + '\nGarde la voix personnelle de Franck, les attaques demandées, des phrases courtes, la longueur demandée et le nombre de fautes demandé. Réponds uniquement avec le JSON demandé, sans aucun texte autour.';
   }
 
   function expressionsProscrites(texte) {
@@ -600,6 +626,9 @@
     LONGUEURS,
     LONGUEUR_PAR_DEFAUT,
     IRONIE_PAR_DEFAUT,
+    FAUTES_PAR_DEFAUT,
+    normaliserFautes,
+    motsPlusLonguePhrase,
     HUMOUR_MAX_CARACTERES,
     ATTAQUES,
     tirerAttaques,
